@@ -6,7 +6,7 @@ Shows how to load a saved dataset
 from braindecode.datautil import load_concat_dataset
 from braindecode.preprocessing import create_windows_from_events
 
-DATAPATH = "data/TUH/TUHMock"
+DATAPATH = "/home/jovyan/mne_data/TUH-preprocessed-NEW" #"data/TUH/TUHMock"
 
 dataset_loaded = load_concat_dataset(
     path=DATAPATH,
