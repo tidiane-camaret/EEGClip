@@ -30,7 +30,7 @@ mne.set_log_level('ERROR')  # avoid messages everytime a window is extracted
 # If you want to try this code with the actual data, please delete the next
 # section. We are required to mock some dataset functionality, since the data
 # is not available at creation time of this example.
-#from braindecode.datasets.tuh import _TUHMock as TUH  # noqa F811
+from braindecode.datasets.tuh import _TUHMock as TUH  # noqa F811
 
 
 ###############################################################################
@@ -80,6 +80,7 @@ ax.legend(genders)
 ax.set_xlabel('Age [years]')
 ax.set_ylabel('Count')
 
+plt.show()
 
 ###############################################################################
 # Next, we will perform some preprocessing steps. First, we will do some
