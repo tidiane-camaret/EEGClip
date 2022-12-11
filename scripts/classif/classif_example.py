@@ -1,3 +1,14 @@
+"""
+
+Description
+
+This script shows how to train a classifier on the BNCI2014001 dataset,
+using the braindecode library.
+there are 4 classes (left hand, right hand, foot, tongue)
+
+extracted from https://braindecode.org/stable/auto_examples/plot_bcic_iv_2a_moabb_trial.html
+"""
+
 from braindecode.datasets import MOABBDataset
 
 subject_id = 3
@@ -97,7 +108,7 @@ weight_decay = 0
 # weight_decay = 0.5 * 0.001
 
 batch_size = 64
-n_epochs = 4
+n_epochs = 50
 
 clf = EEGClassifier(
     model,
