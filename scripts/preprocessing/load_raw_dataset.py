@@ -10,9 +10,11 @@ mne.set_log_level('ERROR')  # avoid messages everytime a window is extracted
 
 TUH_PATH = '/home/jovyan/mne_data/TUH/tuh_eeg_abnormal/v2.0.0'
 N_JOBS = 8  # specify the number of jobs for loading and windowing
+N_SAMPLES = 10
+
 tuh = TUH(
     path=TUH_PATH,
-    recording_ids=[:30],
+    recording_ids=list(range(N_SAMPLES)),
     target_name=('gender'),
     preload=False,
     add_physician_reports=True,
