@@ -109,7 +109,7 @@ weight_decay = 0
 
 batch_size = 64
 n_epochs = 50
-
+"""
 clf = EEGClassifier(
     model,
     criterion=torch.nn.NLLLoss,
@@ -126,3 +126,25 @@ clf = EEGClassifier(
 # Model training for a specified number of epochs. `y` is None as it is already supplied
 # in the dataset.
 clf.fit(train_set, y=None, epochs=n_epochs)
+"""
+
+from EEGClip.models import EEGClassifierModule
+from pytorch_lightning.callbacks.progress import TQDMProgressBar
+from pytorch_lightning.loggers import TensorBoardLogger
+from pytorch_lightning import Trainer
+import torch
+
+train_loader = torch.utils.data.DataLoader(train_set, batch_size = batch_size)
+valid_loader = torch.utils.data.DataLoader(valid_set, batch_size = batch_size)
+
+logger = TensorBoardLogger("results/tb_logs", name="EEG_Classifier")
+
+trainer = Trainer(
+    accelerator="auto",
+    devices=1 if torch.cuda.is_available() else None,  
+    max_epochs=n_epochs,
+    callbacks=[TQDMProgressBar(refresh_rate=20)],
+    logger=logger,
+)
+
+trainer.fit(EEGClassifierModule(classifier_model=classifier_model, lr = lr), train_loader, valid_loader)

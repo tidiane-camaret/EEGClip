@@ -16,7 +16,6 @@ from pytorch_lightning.loggers import TensorBoardLogger
 from pytorch_lightning import Trainer
 from braindecode import EEGClassifier
 
-
 from EEGClip.models import EEGClassifierModule
 
 mne.set_log_level('ERROR')  # avoid messages everytime a window is extracted
@@ -81,7 +80,7 @@ classifier_model = ShallowFBCSPNet(
 
 # Send model to GPU
 
-"""
+
 # These values we found good for shallow network:
 lr = 0.0625 * 0.01
 weight_decay = 0
@@ -93,7 +92,7 @@ weight_decay = 0
 batch_size = 64
 n_epochs = 50
 
-
+"""
 if cuda:
     model.cuda()
 
@@ -115,17 +114,17 @@ clf = EEGClassifier(
 clf.fit(train_set, y=None, epochs=n_epochs)
 """
 
-train_loader = torch.utils.data.DataLoader(train_set, batch_size = 64)
-valid_loader = torch.utils.data.DataLoader(valid_set, batch_size = 64)
+train_loader = torch.utils.data.DataLoader(train_set, batch_size = batch_size)
+valid_loader = torch.utils.data.DataLoader(valid_set, batch_size = batch_size)
 
 logger = TensorBoardLogger("results/tb_logs", name="EEG_Classifier")
 
 trainer = Trainer(
     accelerator="auto",
-    devices=1 if torch.cuda.is_available() else None,  # limiting got iPython runs
-    max_epochs=10,
+    devices=1 if torch.cuda.is_available() else None,  
+    max_epochs=n_epochs,
     callbacks=[TQDMProgressBar(refresh_rate=20)],
     logger=logger,
 )
 
-trainer.fit(EEGClassifierModule(classifier_model), train_loader, valid_loader)
+trainer.fit(EEGClassifierModule(classifier_model=classifier_model, lr = lr), train_loader, valid_loader)

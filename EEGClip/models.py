@@ -2,10 +2,11 @@ import torch
 import pytorch_lightning as pl
 
 class EEGClassifierModule(pl.LightningModule):
-    def __init__(self, classifier_model):
+    def __init__(self, classifier_model, lr):
         super().__init__()
         self.classifier = classifier_model
         self.loss_fn = torch.nn.NLLLoss()
+        self.lr = lr
 
     def forward(self, x):
         return self.classifier(x)
@@ -36,6 +37,6 @@ class EEGClassifierModule(pl.LightningModule):
 
         return loss
     def configure_optimizers(self):
-        optimizer = torch.optim.AdamW(self.parameters(), lr = 0.0625 * 0.01)
-        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max = 49)
+        optimizer = torch.optim.AdamW(self.parameters(), lr = self.lr)
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max = self.trainer.max_epochs - 1)
         return [optimizer], [scheduler]
