@@ -11,18 +11,23 @@ from braindecode.util import set_random_seeds
 from braindecode.models import ShallowFBCSPNet, deep4
 from skorch.callbacks import LRScheduler
 from skorch.helper import predefined_split
-
+from pytorch_lightning.callbacks.progress import TQDMProgressBar
+from pytorch_lightning.loggers import TensorBoardLogger
+from pytorch_lightning import Trainer
 from braindecode import EEGClassifier
+
+
+from EEGClip.models import EEGClassifierModule
 
 mne.set_log_level('ERROR')  # avoid messages everytime a window is extracted
 
 TUHAbnormal_PATH = '/home/jovyan/mne_data/TUH/tuh_eeg_abnormal/v2.0.0'
 N_JOBS = 8  # specify the number of jobs for loading and windowing
-N_SAMPLES = 10
+N_SAMPLES = 5
 
 tuh = TUHAbnormal(
     path=TUHAbnormal_PATH,
-    #recording_ids=list(range(N_SAMPLES)),
+    recording_ids=list(range(N_SAMPLES)),
     target_name=('pathological'),#'report'),
     preload=False,
     add_physician_reports=True,
@@ -31,10 +36,6 @@ tuh = TUHAbnormal(
 
 print("length of dataset : ", len(tuh))
 
-#show last example 
-x, y = tuh[-1]
-print('x:', x)
-print('y:', y)
 
 print(tuh.description)
 
@@ -71,7 +72,7 @@ n_classes = 2
 n_chans = train_set[0][0].shape[0]
 input_window_samples = train_set[0][0].shape[1]
 
-model = ShallowFBCSPNet(
+classifier_model = ShallowFBCSPNet(
     n_chans,
     n_classes,
     input_window_samples=input_window_samples,
@@ -79,10 +80,8 @@ model = ShallowFBCSPNet(
 )
 
 # Send model to GPU
-if cuda:
-    model.cuda()
 
-
+"""
 # These values we found good for shallow network:
 lr = 0.0625 * 0.01
 weight_decay = 0
@@ -93,6 +92,10 @@ weight_decay = 0
 
 batch_size = 64
 n_epochs = 50
+
+
+if cuda:
+    model.cuda()
 
 clf = EEGClassifier(
     model,
@@ -110,5 +113,19 @@ clf = EEGClassifier(
 # Model training for a specified number of epochs. `y` is None as it is already supplied
 # in the dataset.
 clf.fit(train_set, y=None, epochs=n_epochs)
+"""
 
+train_loader = torch.utils.data.DataLoader(train_set, batch_size = 64)
+valid_loader = torch.utils.data.DataLoader(valid_set, batch_size = 64)
 
+logger = TensorBoardLogger("results/tb_logs", name="EEG_Classifier")
+
+trainer = Trainer(
+    accelerator="auto",
+    devices=1 if torch.cuda.is_available() else None,  # limiting got iPython runs
+    max_epochs=10,
+    callbacks=[TQDMProgressBar(refresh_rate=20)],
+    logger=logger,
+)
+
+trainer.fit(EEGClassifierModule(classifier_model), train_loader, valid_loader)

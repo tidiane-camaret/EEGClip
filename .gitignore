@@ -137,3 +137,4 @@ clip_text_category-jvsc-742bddc6-8b0c-4890-ae6a-ba95664292141e824da3-c942-4932-a
 tuh_text_classif-jvsc-0d669876-d5b3-40e4-9219-41c30cf9fe09f3c0d768-a2a6-4806-bb9c-f1863d3b2ea7.ipynb
 data/.~lock.TUH_Abnormal_EEG_rep.csv#
 data/TUH_Abnormal_EEG_rep_clip_features.csv
+results/tb_logs/
