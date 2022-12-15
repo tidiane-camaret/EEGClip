@@ -36,4 +36,6 @@ class EEGClassifierModule(pl.LightningModule):
 
         return loss
     def configure_optimizers(self):
-        return torch.optim.AdamW(self.parameters(), lr = 0.0625 * 0.01)
+        optimizer = torch.optim.AdamW(self.parameters(), lr = 0.0625 * 0.01)
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max = 49)
+        return [optimizer], [scheduler]
