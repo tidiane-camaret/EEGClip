@@ -19,6 +19,7 @@ class EEGClassifierModule(pl.LightningModule):
         self.log('train_loss', loss)
 
         accuracy = torch.sum(torch.argmax(y_hat, dim=1) == y) / y.shape[0]
+        #accuracy = accuracy.cpu().numpy()
         #print('train_acc : ', accuracy)
         self.log('train_acc', accuracy)
 
@@ -32,8 +33,9 @@ class EEGClassifierModule(pl.LightningModule):
         self.log('validation_loss', loss)
 
         accuracy = torch.sum(torch.argmax(y_hat, dim=1) == y) / y.shape[0]
-        print('validation_acc : ', accuracy)
-        self.log('validation_acc', accuracy)
+        #accuracy = accuracy.cpu().numpy()
+        #print('validation_acc : ', accuracy)
+        self.log('validation_acc', accuracy, on_epoch = True, prog_bar=True) #on_epoch automatically averages over epoch
 
         return loss
     def configure_optimizers(self):

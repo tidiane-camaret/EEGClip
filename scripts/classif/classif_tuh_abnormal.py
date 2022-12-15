@@ -94,10 +94,10 @@ n_epochs = 50
 
 """
 if cuda:
-    model.cuda()
+    classifier_model.cuda()
 
 clf = EEGClassifier(
-    model,
+    classifier_model,
     criterion=torch.nn.NLLLoss,
     optimizer=torch.optim.AdamW,
     train_split=predefined_split(valid_set),  # using valid_set for validation

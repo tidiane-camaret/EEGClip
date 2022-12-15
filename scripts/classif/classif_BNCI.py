@@ -84,7 +84,7 @@ n_classes = 4
 n_chans = train_set[0][0].shape[0]
 input_window_samples = train_set[0][0].shape[1]
 
-model = ShallowFBCSPNet(
+classifier_model = ShallowFBCSPNet(
     n_chans,
     n_classes,
     input_window_samples=input_window_samples,
@@ -93,7 +93,7 @@ model = ShallowFBCSPNet(
 
 # Send model to GPU
 if cuda:
-    model.cuda()
+    classifier_model.cuda()
 
 from skorch.callbacks import LRScheduler
 from skorch.helper import predefined_split
@@ -111,7 +111,7 @@ batch_size = 64
 n_epochs = 50
 """
 clf = EEGClassifier(
-    model,
+    classifier_model,
     criterion=torch.nn.NLLLoss,
     optimizer=torch.optim.AdamW,
     train_split=predefined_split(valid_set),  # using valid_set for validation
