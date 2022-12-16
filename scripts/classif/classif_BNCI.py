@@ -128,7 +128,7 @@ clf = EEGClassifier(
 clf.fit(train_set, y=None, epochs=n_epochs)
 """
 
-from EEGClip.models import EEGClassifierModule
+from EEGClip.classifier_models import EEGClassifierModule
 from pytorch_lightning.callbacks.progress import TQDMProgressBar
 from pytorch_lightning.loggers import TensorBoardLogger
 from pytorch_lightning import Trainer

@@ -16,7 +16,7 @@ from pytorch_lightning.loggers import TensorBoardLogger
 from pytorch_lightning import Trainer
 from braindecode import EEGClassifier
 
-from EEGClip.models import EEGClipModule
+from EEGClip.clip_models import EEGClipModule
 
 mne.set_log_level('ERROR')  # avoid messages everytime a window is extracted
 

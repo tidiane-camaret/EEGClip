@@ -38,6 +38,7 @@ class EEGClassifierModule(pl.LightningModule):
         self.log('validation_acc', accuracy, on_epoch = True, prog_bar=True) #on_epoch automatically averages over epoch
 
         return loss
+        
     def configure_optimizers(self):
         optimizer = torch.optim.AdamW(self.parameters(), lr = self.lr)
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max = self.trainer.max_epochs - 1)
