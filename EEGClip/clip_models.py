@@ -9,7 +9,6 @@ import matplotlib.pyplot as plt
 import torch
 from torch import nn
 import torch.nn.functional as F
-import timm
 from transformers import DistilBertModel, DistilBertConfig, DistilBertTokenizer
 import pytorch_lightning as pl
 
@@ -28,11 +27,11 @@ class CFG:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     model_name = 'resnet50'
-    eeg_embedding_dim = 768 #2048
+    eeg_embedding_dim = 128 #768 #2048
     nb_categories = 2
     category_embedding_dim = 768
     text_encoder_model = "distilbert-base-uncased"
-    text_embedding = 768
+    text_embedding_dim = 768
     text_tokenizer = "distilbert-base-uncased"
     max_length = 200
 
@@ -61,8 +60,15 @@ class TextEncoder(nn.Module):
         # we are using the CLS token hidden representation as the sentence's embedding
         self.target_token_idx = 0
 
-    def forward(self, input_ids, attention_mask):
-        output = self.model(input_ids=input_ids, attention_mask=attention_mask)
+        self.tokenizer = tokenizer = DistilBertTokenizer.from_pretrained(CFG.text_tokenizer)
+
+    def forward(self, input): #input_ids, attention_mask):
+        tokenized_input = self.tokenizer(
+            input, padding=True, truncation=True, max_length=CFG.max_length
+        )
+        #print(tokenized_input)
+        output = self.model(input_ids=torch.IntTensor(tokenized_input["input_ids"]),
+                            attention_mask=torch.IntTensor(tokenized_input["attention_mask"]))
         last_hidden_state = output.last_hidden_state
         return last_hidden_state[:, self.target_token_idx, :]
 
@@ -79,12 +85,14 @@ class CategoryEncoder(nn.Module):
             p.requires_grad = trainable
 
 class EEGEncoder(nn.Module):
-    def __init__(self, eeg_classifier, trainable=CFG.trainable):
+    def __init__(self, eeg_classifier_model, trainable=CFG.trainable):
         super().__init__()
         # TODO: add pretrained models
-        self.model = torch.nn.Sequential(*list(eeg_classifier.children())[:-1])
+        self.model = eeg_classifier_model #torch.nn.Sequential(*list(eeg_classifier_model.children())[:-1])
         for p in self.model.parameters():
             p.requires_grad = trainable
+
+        
 
     def forward(self, input):
         output = self.model(input)
@@ -125,16 +133,20 @@ def cross_entropy(preds, targets, reduction='none'):
 class EEGClipModule(pl.LightningModule):
     def __init__(
         self,
+        eeg_classifier_model, 
+        lr,
         temperature=CFG.temperature,
         eeg_embedding_dim=CFG.eeg_embedding_dim,
         text_embedding_dim=CFG.text_embedding_dim,
     ):
         super().__init__()
-        self.eeg_encoder = EEGEncoder()
+        self.eeg_encoder = EEGEncoder(eeg_classifier_model)
         self.text_encoder = TextEncoder()
         self.eeg_projection = ProjectionHead(embedding_dim=eeg_embedding_dim)
         self.text_projection = ProjectionHead(embedding_dim=text_embedding_dim)
         self.temperature = temperature
+        self.eeg_classifier_model = eeg_classifier_model
+        self.lr = lr
 
 
     def forward(self, batch):
@@ -159,7 +171,25 @@ class EEGClipModule(pl.LightningModule):
         texts_loss = cross_entropy(logits, targets, reduction='none')
         categories_loss = cross_entropy(logits.T, targets.T, reduction='none')
         loss =  (categories_loss + texts_loss) / 2.0 # shape: (batch_size)
-        return loss.mean()
+        loss = loss.mean()
+        self.log('train_loss', loss)
+        return loss
+
+    def validation_step(self, batch, batch_idx):
+        eeg_embeddings, text_embeddings = self.forward(batch)
+
+        logits = (text_embeddings @ eeg_embeddings.T) / self.temperature
+        categories_similarity = eeg_embeddings @ eeg_embeddings.T
+        texts_similarity = text_embeddings @ text_embeddings.T
+        targets = F.softmax(
+            (categories_similarity + texts_similarity) / 2 * self.temperature, dim=-1
+        )
+        texts_loss = cross_entropy(logits, targets, reduction='none')
+        categories_loss = cross_entropy(logits.T, targets.T, reduction='none')
+        loss =  (categories_loss + texts_loss) / 2.0 # shape: (batch_size)
+        loss = loss.mean()
+        self.log('validation_loss', loss, on_epoch = True, prog_bar=True)
+        return loss
 
     def configure_optimizers(self):
         optimizer = torch.optim.AdamW(self.parameters(), lr = self.lr)

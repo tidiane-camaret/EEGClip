@@ -51,6 +51,12 @@ tuh_windows = create_fixed_length_windows(
 
 )
 
+"""
+tuh_windows.save(
+    path="data/TUH_abnormal_sample",
+    overwrite=True,
+)
+"""
 print(len(tuh_windows))
 
 # split the dataset in train and test (label is included in the data)
@@ -71,7 +77,7 @@ n_classes = 2
 n_chans = train_set[0][0].shape[0]
 input_window_samples = train_set[0][0].shape[1]
 
-classifier_model = ShallowFBCSPNet(
+eeg_classifier_model = ShallowFBCSPNet(
     n_chans,
     n_classes,
     input_window_samples=input_window_samples,
@@ -94,10 +100,10 @@ n_epochs = 50
 
 """
 if cuda:
-    classifier_model.cuda()
+    eeg_classifier_model.cuda()
 
 clf = EEGClassifier(
-    classifier_model,
+    eeg_classifier_model,
     criterion=torch.nn.NLLLoss,
     optimizer=torch.optim.AdamW,
     train_split=predefined_split(valid_set),  # using valid_set for validation
@@ -127,4 +133,4 @@ trainer = Trainer(
     logger=logger,
 )
 
-trainer.fit(EEGClassifierModule(classifier_model=classifier_model, lr = lr), train_loader, valid_loader)
+trainer.fit(EEGClassifierModule(eeg_classifier_model=eeg_classifier_model, lr = lr), train_loader, valid_loader)

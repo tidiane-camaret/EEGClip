@@ -22,12 +22,12 @@ mne.set_log_level('ERROR')  # avoid messages everytime a window is extracted
 
 TUHAbnormal_PATH = '/home/jovyan/mne_data/TUH/tuh_eeg_abnormal/v2.0.0'
 N_JOBS = 8  # specify the number of jobs for loading and windowing
-N_SAMPLES = 5
+N_SAMPLES = 3
 
 tuh = TUHAbnormal(
     path=TUHAbnormal_PATH,
     recording_ids=list(range(N_SAMPLES)),
-    target_name=('pathological'),#'report'),
+    target_name=('report'),#'pathological'),
     preload=False,
     add_physician_reports=True,
     n_jobs=N_JOBS, 
@@ -58,20 +58,20 @@ splitted = tuh_windows.split("train")
 train_set = splitted['True']
 valid_set = splitted['False']
 
-
+"""
 cuda = torch.cuda.is_available()  # check if GPU is available, if True chooses to use it
 device = 'cuda' if cuda else 'cpu'
 if cuda:
     torch.backends.cudnn.benchmark = True
 seed = 20200220
 set_random_seeds(seed=seed, cuda=cuda)
-
-n_classes = 2
+"""
+n_classes = 128
 # Extract number of chans and time steps from dataset
 n_chans = train_set[0][0].shape[0]
 input_window_samples = train_set[0][0].shape[1]
 
-classifier_model = ShallowFBCSPNet(
+eeg_classifier_model = ShallowFBCSPNet(
     n_chans,
     n_classes,
     input_window_samples=input_window_samples,
@@ -89,21 +89,21 @@ weight_decay = 0
 # lr = 1 * 0.01
 # weight_decay = 0.5 * 0.001
 
-batch_size = 64
+batch_size = 16#64
 n_epochs = 50
+num_workers = 60
 
-
-train_loader = torch.utils.data.DataLoader(train_set, batch_size = batch_size)
-valid_loader = torch.utils.data.DataLoader(valid_set, batch_size = batch_size)
+train_loader = torch.utils.data.DataLoader(train_set, batch_size = batch_size, num_workers = num_workers)
+valid_loader = torch.utils.data.DataLoader(valid_set, batch_size = batch_size, num_workers = num_workers)
 
 logger = TensorBoardLogger("results/tb_logs", name="EEG_Classifier")
 
 trainer = Trainer(
-    accelerator="auto",
-    devices=1 if torch.cuda.is_available() else None,  
+    #accelerator="auto",
+    #devices=None, #1 if torch.cuda.is_available() else None,  
     max_epochs=n_epochs,
     callbacks=[TQDMProgressBar(refresh_rate=20)],
     logger=logger,
 )
 
-trainer.fit(EEGClipModule(classifier_model=classifier_model, lr = lr), train_loader, valid_loader)
+trainer.fit(EEGClipModule(eeg_classifier_model=eeg_classifier_model, lr = lr), train_loader, valid_loader)
