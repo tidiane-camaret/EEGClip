@@ -22,7 +22,7 @@ mne.set_log_level('ERROR')  # avoid messages everytime a window is extracted
 
 TUHAbnormal_PATH = '/home/jovyan/mne_data/TUH/tuh_eeg_abnormal/v2.0.0'
 N_JOBS = 8  # specify the number of jobs for loading and windowing
-N_SAMPLES = 3
+N_SAMPLES = 100
 
 tuh = TUHAbnormal(
     path=TUHAbnormal_PATH,
@@ -89,21 +89,23 @@ weight_decay = 0
 # lr = 1 * 0.01
 # weight_decay = 0.5 * 0.001
 
-batch_size = 16#64
+batch_size = 32#64
 n_epochs = 50
-num_workers = 60
+num_workers = 32
 
 train_loader = torch.utils.data.DataLoader(train_set, batch_size = batch_size, num_workers = num_workers)
 valid_loader = torch.utils.data.DataLoader(valid_set, batch_size = batch_size, num_workers = num_workers)
 
-logger = TensorBoardLogger("results/tb_logs", name="EEG_Classifier")
+logger = TensorBoardLogger("results/tb_logs", name="EEG_Clip")
 
 trainer = Trainer(
-    #accelerator="auto",
+    devices=1,
+    accelerator="gpu",
     #devices=None, #1 if torch.cuda.is_available() else None,  
     max_epochs=n_epochs,
-    callbacks=[TQDMProgressBar(refresh_rate=20)],
+    #callbacks=[TQDMProgressBar(refresh_rate=20)],
     logger=logger,
+    profiler="advanced"
 )
 
 trainer.fit(EEGClipModule(eeg_classifier_model=eeg_classifier_model, lr = lr), train_loader, valid_loader)

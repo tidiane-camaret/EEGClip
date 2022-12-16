@@ -13,6 +13,10 @@ from transformers import DistilBertModel, DistilBertConfig, DistilBertTokenizer
 import pytorch_lightning as pl
 
 class CFG:
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+
     debug = False
     batch_size = 32
     num_workers = 2
@@ -23,10 +27,7 @@ class CFG:
     weight_decay = 1e-3
     patience = 1
     factor = 0.8
-    epochs = 4
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    model_name = 'resnet50'
     eeg_embedding_dim = 128 #768 #2048
     nb_categories = 2
     category_embedding_dim = 768
@@ -35,8 +36,10 @@ class CFG:
     text_tokenizer = "distilbert-base-uncased"
     max_length = 200
 
-    pretrained = True # for both eeg encoder and text encoder
-    trainable = True # for both eeg encoder and text encoder
+    pretrained_text_model = True
+    trainable_text_model = False
+    trainable_eeg_model = True
+
     temperature = 1.0
 
 
@@ -47,7 +50,7 @@ class CFG:
 
 
 class TextEncoder(nn.Module):
-    def __init__(self, model_name=CFG.text_encoder_model, pretrained=CFG.pretrained, trainable=CFG.trainable):
+    def __init__(self, model_name=CFG.text_encoder_model, pretrained=CFG.pretrained_text_model , trainable=CFG.trainable_text_model ):
         super().__init__()
         if pretrained:
             self.model = DistilBertModel.from_pretrained(model_name)
@@ -60,19 +63,23 @@ class TextEncoder(nn.Module):
         # we are using the CLS token hidden representation as the sentence's embedding
         self.target_token_idx = 0
 
-        self.tokenizer = tokenizer = DistilBertTokenizer.from_pretrained(CFG.text_tokenizer)
+        self.tokenizer = DistilBertTokenizer.from_pretrained(CFG.text_tokenizer)
+
+        self.trimming = lambda sentence : sentence[sentence.find('DESCRIPTION OF THE RECORD:'):]
 
     def forward(self, input): #input_ids, attention_mask):
+        #input = [self.trimming(sentence) for sentence in input]
+        print("LEN OF FIRST SENTENCE: ", len(input[0]))
         tokenized_input = self.tokenizer(
             input, padding=True, truncation=True, max_length=CFG.max_length
         )
-        #print(tokenized_input)
-        output = self.model(input_ids=torch.IntTensor(tokenized_input["input_ids"]),
-                            attention_mask=torch.IntTensor(tokenized_input["attention_mask"]))
+
+        output = self.model(input_ids=torch.IntTensor(tokenized_input["input_ids"]).to(CFG.device),
+                            attention_mask=torch.IntTensor(tokenized_input["attention_mask"]).to(CFG.device))
         last_hidden_state = output.last_hidden_state
         return last_hidden_state[:, self.target_token_idx, :]
 
-
+"""
 class CategoryEncoder(nn.Module):
     def __init__(self, pretrained=CFG.pretrained, trainable=CFG.trainable):
         super().__init__()
@@ -83,12 +90,12 @@ class CategoryEncoder(nn.Module):
             
         for p in self.model.parameters():
             p.requires_grad = trainable
-
+"""
 class EEGEncoder(nn.Module):
-    def __init__(self, eeg_classifier_model, trainable=CFG.trainable):
+    def __init__(self, eeg_classifier_model, trainable=CFG.trainable_eeg_model):
         super().__init__()
         # TODO: add pretrained models
-        self.model = eeg_classifier_model #torch.nn.Sequential(*list(eeg_classifier_model.children())[:-1])
+        self.model = eeg_classifier_model
         for p in self.model.parameters():
             p.requires_grad = trainable
 
@@ -151,16 +158,20 @@ class EEGClipModule(pl.LightningModule):
 
     def forward(self, batch):
         x, y, z = batch
+        #print("CALCULATING EEG FEATURES")
         eeg_features = self.eeg_encoder(x)
+        #print("CALCULATING TEXT FEATURES")
         text_features = self.text_encoder(y)
-
+        #print("PROJECTING EEG FEATURES")
         eeg_embeddings = self.eeg_projection(eeg_features)
+        #print("PROJECTING TEXT FEATURES")
         text_embeddings = self.text_projection(text_features)
 
         return eeg_embeddings, text_embeddings
 
     def training_step(self, batch, batch_idx):
         eeg_embeddings, text_embeddings = self.forward(batch)
+        #print("CALCULATING LOSS")
 
         logits = (text_embeddings @ eeg_embeddings.T) / self.temperature
         categories_similarity = eeg_embeddings @ eeg_embeddings.T
@@ -172,7 +183,7 @@ class EEGClipModule(pl.LightningModule):
         categories_loss = cross_entropy(logits.T, targets.T, reduction='none')
         loss =  (categories_loss + texts_loss) / 2.0 # shape: (batch_size)
         loss = loss.mean()
-        self.log('train_loss', loss)
+        self.log('train_loss', loss, prog_bar=True)
         return loss
 
     def validation_step(self, batch, batch_idx):
