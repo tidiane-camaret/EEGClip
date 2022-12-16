@@ -3,11 +3,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 import mne
 import pandas as pd
-from braindecode.datasets import TUHAbnormal
+from braindecode.datasets import TUHAbnormal, BaseConcatDataset
 from braindecode.preprocessing import (
     preprocess, Preprocessor, create_fixed_length_windows, create_windows_from_events, scale as multiply)
 import torch
 from braindecode.util import set_random_seeds
+
 from braindecode.models import ShallowFBCSPNet, deep4
 from skorch.callbacks import LRScheduler
 from skorch.helper import predefined_split
@@ -51,21 +52,21 @@ tuh_windows = create_fixed_length_windows(
 
 )
 
-print(len(tuh_windows))
+print("length of windowed dataset : ", len(tuh_windows))
 
-# split the dataset in train and test (label is included in the data)
-splitted = tuh_windows.split("train")
-train_set = splitted['True']
-valid_set = splitted['False']
+# split the dataset in train and test 
 
-"""
-cuda = torch.cuda.is_available()  # check if GPU is available, if True chooses to use it
-device = 'cuda' if cuda else 'cpu'
-if cuda:
-    torch.backends.cudnn.benchmark = True
-seed = 20200220
-set_random_seeds(seed=seed, cuda=cuda)
-"""
+subject_datasets = tuh_windows.split('subject')
+n_subjects = len(subject_datasets)
+
+n_split = int(np.round(n_subjects * 0.75))
+keys = list(subject_datasets.keys())
+train_sets = [d for i in range(n_split) for d in subject_datasets[keys[i]].datasets]
+train_set = BaseConcatDataset(train_sets)
+valid_sets = [d for i in range(n_split, n_subjects) for d in subject_datasets[keys[i]].datasets]
+valid_set = BaseConcatDataset(valid_sets)
+
+
 n_classes = 128
 # Extract number of chans and time steps from dataset
 n_chans = train_set[0][0].shape[0]
@@ -93,8 +94,16 @@ batch_size = 32#64
 n_epochs = 50
 num_workers = 32
 
-train_loader = torch.utils.data.DataLoader(train_set, batch_size = batch_size, num_workers = num_workers)
-valid_loader = torch.utils.data.DataLoader(valid_set, batch_size = batch_size, num_workers = num_workers)
+train_loader = torch.utils.data.DataLoader(train_set, 
+                                          batch_size = batch_size, 
+                                          num_workers = num_workers,
+                                          shuffle=True,
+                                          drop_last=True)
+valid_loader = torch.utils.data.DataLoader(valid_set, 
+                                           batch_size = batch_size, 
+                                           num_workers = num_workers,
+                                           shuffle=False,
+                                           drop_last=False)
 
 logger = TensorBoardLogger("results/tb_logs", name="EEG_Clip")
 

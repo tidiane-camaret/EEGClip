@@ -30,7 +30,9 @@ tuabn = TUHAbnormal(
         recording_ids=list(range(N_SAMPLES)),
     )
 
-
+x, y = tuabn[-1]
+print('x:', x)
+print('y:', y)
 
 
 sfreq  = 100
@@ -99,9 +101,7 @@ valid_loader = torch.utils.data.DataLoader(
     num_workers=num_workers,
     drop_last=False)
 
-x, y, z = train_loader[-1]
-print('x:', x)
-print('y:', y)
+
 
 n_classes = 128
 # Extract number of chans and time steps from dataset

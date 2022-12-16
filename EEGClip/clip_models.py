@@ -65,11 +65,11 @@ class TextEncoder(nn.Module):
 
         self.tokenizer = DistilBertTokenizer.from_pretrained(CFG.text_tokenizer)
 
-        self.trimming = lambda sentence : sentence[sentence.find('DESCRIPTION OF THE RECORD:'):]
+        self.trimming = lambda sentence : sentence[sentence.find('DESCRIPTION OF THE RECORD:'):sentence.find('HR:')] 
 
     def forward(self, input): #input_ids, attention_mask):
-        #input = [self.trimming(sentence) for sentence in input]
-        print("LEN OF FIRST SENTENCE: ", len(input[0]))
+        input = [self.trimming(sentence) for sentence in input]
+        #print("FIRST SENTENCE: ", input[0])
         tokenized_input = self.tokenizer(
             input, padding=True, truncation=True, max_length=CFG.max_length
         )
