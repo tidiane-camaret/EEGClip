@@ -42,3 +42,4 @@ class EEGClassifierModule(pl.LightningModule):
         optimizer = torch.optim.AdamW(self.parameters(), lr = self.lr)
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max = self.trainer.max_epochs - 1)
         return [optimizer], [scheduler]
+
