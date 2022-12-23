@@ -6,6 +6,9 @@ import itertools
 from tqdm.autonotebook import tqdm
 import matplotlib.pyplot as plt
 
+from sklearn.model_selection import train_test_split
+from sklearn.neighbors import KNeighborsClassifier
+
 import torch
 from torch import nn
 import torch.nn.functional as F
@@ -15,6 +18,8 @@ import pytorch_lightning as pl
 class CFG:
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    recordings_df = pd.read_csv('/home/jovyan/EEGClip/data/TUH_Abnormal_EEG_rep.csv')
 
 
     debug = False
@@ -67,15 +72,24 @@ class TextEncoder(nn.Module):
 
         self.trimming = lambda sentence : sentence[sentence.find('DESCRIPTION OF THE RECORD:'):sentence.find('HR:')] 
 
-    def forward(self, input): #input_ids, attention_mask):
-        input = [self.trimming(sentence) for sentence in input]
-        #print("FIRST SENTENCE: ", input[0])
-        tokenized_input = self.tokenizer(
-            input, padding=True, truncation=True, max_length=CFG.max_length
+    def forward(self, input_batch): #input_ids, attention_mask):
+
+        #print("nb of ids : ", input.cpu().numpy().shape)
+
+        input_batch = input_batch.cpu().numpy()
+
+        text_batch = [CFG.recordings_df[CFG.recordings_df.SUBJECT == input].iloc[0]["DESCRIPTION OF THE RECORD"] for input in input_batch]
+
+        #text_batch = [self.trimming(sentence) for sentence in text_batch]
+
+        #print("nb of sentences : ", len(text_batch))
+
+        tokenized_text = self.tokenizer(
+            text_batch, padding=True, truncation=True, max_length=CFG.max_length
         )
 
-        output = self.model(input_ids=torch.IntTensor(tokenized_input["input_ids"]).to(CFG.device),
-                            attention_mask=torch.IntTensor(tokenized_input["attention_mask"]).to(CFG.device))
+        output = self.model(input_ids=torch.IntTensor(tokenized_text["input_ids"]).to(CFG.device),
+                            attention_mask=torch.IntTensor(tokenized_text["attention_mask"]).to(CFG.device))
         last_hidden_state = output.last_hidden_state
         return last_hidden_state[:, self.target_token_idx, :]
 
@@ -99,8 +113,7 @@ class EEGEncoder(nn.Module):
         for p in self.model.parameters():
             p.requires_grad = trainable
 
-        
-
+    
     def forward(self, input):
         output = self.model(input)
         return output
@@ -167,27 +180,63 @@ class EEGClipModule(pl.LightningModule):
         #print("PROJECTING TEXT FEATURES")
         text_embeddings = self.text_projection(text_features)
 
-        return eeg_embeddings, text_embeddings
+        return eeg_embeddings, text_embeddings, y
 
     def training_step(self, batch, batch_idx):
-        eeg_embeddings, text_embeddings = self.forward(batch)
+        eeg_embeddings, text_embeddings, _ = self.forward(batch)
         #print("CALCULATING LOSS")
 
         logits = (text_embeddings @ eeg_embeddings.T) / self.temperature
-        categories_similarity = eeg_embeddings @ eeg_embeddings.T
+        eeg_similarity = eeg_embeddings @ eeg_embeddings.T
         texts_similarity = text_embeddings @ text_embeddings.T
         targets = F.softmax(
-            (categories_similarity + texts_similarity) / 2 * self.temperature, dim=-1
+            (eeg_similarity + texts_similarity) / 2 * self.temperature, dim=-1
         )
         texts_loss = cross_entropy(logits, targets, reduction='none')
-        categories_loss = cross_entropy(logits.T, targets.T, reduction='none')
-        loss =  (categories_loss + texts_loss) / 2.0 # shape: (batch_size)
+        eeg_loss = cross_entropy(logits.T, targets.T, reduction='none')
+        loss =  (eeg_loss + texts_loss) / 2.0 # shape: (batch_size)
         loss = loss.mean()
         self.log('train_loss', loss, prog_bar=True)
         return loss
 
+    def configure_optimizers(self):
+        optimizer = torch.optim.AdamW(self.parameters(), lr = self.lr)
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max = self.trainer.max_epochs - 1)
+        return [optimizer], [scheduler]
+
+
     def validation_step(self, batch, batch_idx):
-        eeg_embeddings, text_embeddings = self.forward(batch)
+        eeg_embeddings, text_embeddings, y = self.forward(batch)
+
+        input_batch = y.cpu().numpy()
+        label_batch = [CFG.recordings_df[CFG.recordings_df.SUBJECT == input].iloc[0]["LABEL"] for input in input_batch]
+        label_batch = [1 if label == "normal" else 0 for label in label_batch]
+        label_batch = torch.IntTensor(label_batch)
+
+        return text_embeddings, label_batch
+
+    
+    def validation_epoch_end(self, outputs):
+            # get rid of last batch if it is smaller than batch_size
+        if len(outputs) > 1:
+            outputs = outputs[:-1]
+        features, targets = zip(*outputs)
+        features = torch.stack(features)
+        targets = torch.stack(targets)
+        features = features.reshape(-1, features.shape[-1])
+        targets = targets.reshape(-1)
+        features_train, features_test, targets_train, targets_test = train_test_split(features, targets, shuffle=True)
+        print(torch.sum(targets_train)/targets_train.shape[0],torch.sum(targets_test)/targets_test.shape[0])
+        
+        neigh = KNeighborsClassifier(n_neighbors=min(targets.shape[0],20))
+        neigh.fit(features_train.cpu(), targets_train.cpu())
+
+        pred_labels_knn = neigh.predict(features_test.cpu())
+
+        accuracy = (pred_labels_knn == targets_test.cpu().tolist()).mean().item()# / features.size(0)
+        self.log('knn_acc', accuracy, prog_bar=True)
+        return accuracy
+        """
 
         logits = (text_embeddings @ eeg_embeddings.T) / self.temperature
         categories_similarity = eeg_embeddings @ eeg_embeddings.T
@@ -201,8 +250,33 @@ class EEGClipModule(pl.LightningModule):
         loss = loss.mean()
         self.log('validation_loss', loss, on_epoch = True, prog_bar=True)
         return loss
+        """
 
-    def configure_optimizers(self):
-        optimizer = torch.optim.AdamW(self.parameters(), lr = self.lr)
-        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max = self.trainer.max_epochs - 1)
-        return [optimizer], [scheduler]
+
+
+
+
+    """
+    def training_epoch_end(self, outputs):
+        # print losses
+        losses = [i['loss'].item() for i in outputs]
+        loss_avg = sum(losses)/len(losses)
+        print(f'train loss = {loss_avg:.2f}')
+
+        # update feature bank at the end of each training epoch
+        self.eeg_encoder.eval()
+        self.feature_bank = []
+        self.targets_bank = []
+        with torch.no_grad():
+            for batch in self.val_dataloader():
+                eeg_embeddings, text_embeddings, y = self.forward(batch)
+                input_batch = input_batch.cpu().numpy()
+                label = [CFG.recordings_df[CFG.recordings_df.SUBJECT == input].iloc[0]["LABEL"] for input in input_batch]
+                self.feature_bank.append(text_embeddings)
+                self.targets_bank.append(label)
+        self.feature_bank = torch.cat(
+            self.feature_bank, dim=0).t().contiguous()
+        self.targets_bank = torch.cat(
+            self.targets_bank, dim=0).t().contiguous()
+        self.eeg_encoder.train()
+    """

@@ -36,6 +36,10 @@ tuh = TUHAbnormal(
 
 print("length of dataset : ", len(tuh))
 
+x, y = tuh[-1]
+print('x:', x)
+print('y:', y)
+
 
 print(tuh.description)
 

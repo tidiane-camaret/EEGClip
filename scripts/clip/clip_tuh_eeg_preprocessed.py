@@ -18,26 +18,26 @@ mne.set_log_level('ERROR')  # avoid messages everytime a window is extracted
 
 n_jobs = 4
 data_path = '/home/jovyan/mne_data/TUH_PRE/tuh_eeg_abnormal/v2.0.0/edf/'
-N_SAMPLES = 100
+N_SAMPLES = 80
 N_JOBS = 8 
+
+
+sfreq  = 100
+n_minutes = 20
+
 
 tuabn = TUHAbnormal(
         path=data_path,
         preload=False,  # True
         add_physician_reports=True, 
         n_jobs=n_jobs,
-        target_name = 'report',
+        target_name = 'subject',
         recording_ids=list(range(N_SAMPLES)),
     )
 
-x, y = tuabn[-1]
-print('x:', x)
-print('y:', y)
 
 
-sfreq  = 100
-n_minutes = 20
-
+"""
 subject_datasets = tuabn.split('subject')
 n_subjects = len(subject_datasets)
 
@@ -51,15 +51,14 @@ valid_set = BaseConcatDataset(valid_sets)
 
 
 
-"""
-input_window_samples = 2000
-window_stride_samples = 1000
-n_preds_per_input = 1000
+#input_window_samples = 2000
+#window_stride_samples = 1000
+#n_preds_per_input = 1000
 """
 
 window_size_samples = 1000
 window_stride_samples = 1000
-
+"""
 window_train_set = create_fixed_length_windows(
     train_set,
     window_size_samples=window_size_samples,
@@ -76,6 +75,19 @@ window_valid_set = create_fixed_length_windows(
     n_jobs=N_JOBS,
 
 )
+"""
+
+tuh_windows = create_fixed_length_windows(
+    tuabn,
+    window_size_samples=window_size_samples,
+    window_stride_samples=window_stride_samples,
+    drop_last_window=False,
+    n_jobs=N_JOBS,
+
+)
+
+#splitted = tuh_windows.split("train")
+window_train_set, window_valid_set = torch.utils.data.random_split(tuh_windows,[0.7, 0.3]) #splitted['True'], splitted['False'] 
 
 
 batch_size = 32
@@ -137,3 +149,7 @@ trainer = Trainer(
 )
 
 trainer.fit(EEGClipModule(eeg_classifier_model=eeg_classifier_model, lr = lr), train_loader, valid_loader)
+
+
+
+EEGClipModule.EEGClassifier.model

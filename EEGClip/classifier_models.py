@@ -38,7 +38,7 @@ class EEGClassifierModule(pl.LightningModule):
         #print('validation_acc : ', accuracy)
         self.log('validation_acc', accuracy, on_epoch = True, prog_bar=True) #on_epoch automatically averages over epoch
 
-        return loss
+        return loss 
         
     def configure_optimizers(self):
         optimizer = torch.optim.AdamW(self.parameters(), lr = self.lr)
