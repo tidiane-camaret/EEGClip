@@ -14,7 +14,7 @@ class EEGClassifierModule(pl.LightningModule):
     def training_step(self, batch, batch_nb):
         x, y, z = batch
         y_hat = self.classifier(x)
-        print("OUTPUT SHAPE : ", y_hat.shape)
+        #print("OUTPUT SHAPE : ", y_hat.shape)
 
         loss = self.loss_fn(y_hat, y.long())
         self.log('train_loss', loss)
@@ -29,7 +29,7 @@ class EEGClassifierModule(pl.LightningModule):
     def validation_step(self, batch, batch_nb):
         x, y, z = batch
         y_hat = self.classifier(x)
-        print("OUTPUT SHAPE : ", y_hat.shape)
+        #print("OUTPUT SHAPE : ", y_hat.shape)
         loss = self.loss_fn(y_hat, y.long())
         self.log('validation_loss', loss)
 

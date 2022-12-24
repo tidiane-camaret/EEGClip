@@ -1,10 +1,12 @@
 import os
 import gc
+import random
 import numpy as np
 import pandas as pd
 import itertools
 from tqdm.autonotebook import tqdm
 import matplotlib.pyplot as plt
+from sklearn.manifold import TSNE
 
 from sklearn.model_selection import train_test_split
 from sklearn.neighbors import KNeighborsClassifier
@@ -18,9 +20,6 @@ import pytorch_lightning as pl
 class CFG:
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-    recordings_df = pd.read_csv('/home/jovyan/EEGClip/data/TUH_Abnormal_EEG_rep.csv')
-
 
     debug = False
     batch_size = 32
@@ -55,7 +54,7 @@ class CFG:
 
 
 class TextEncoder(nn.Module):
-    def __init__(self, model_name=CFG.text_encoder_model, pretrained=CFG.pretrained_text_model , trainable=CFG.trainable_text_model ):
+    def __init__(self, recordings_df, model_name=CFG.text_encoder_model, pretrained=CFG.pretrained_text_model , trainable=CFG.trainable_text_model ):
         super().__init__()
         if pretrained:
             self.model = DistilBertModel.from_pretrained(model_name)
@@ -70,15 +69,20 @@ class TextEncoder(nn.Module):
 
         self.tokenizer = DistilBertTokenizer.from_pretrained(CFG.text_tokenizer)
 
-        self.trimming = lambda sentence : sentence[sentence.find('DESCRIPTION OF THE RECORD:'):sentence.find('HR:')] 
+        self.trimming = lambda sentence : sentence[sentence.find('DESCRIPTION OF THE RECORD:'):sentence.find('HR:')]
+
+        self.recordings_df = recordings_df
 
     def forward(self, input_batch): #input_ids, attention_mask):
 
         #print("nb of ids : ", input.cpu().numpy().shape)
 
+        #input_batch = list(input_batch)
+        #print(input_batch)
+
         input_batch = input_batch.cpu().numpy()
 
-        text_batch = [CFG.recordings_df[CFG.recordings_df.SUBJECT == input].iloc[0]["DESCRIPTION OF THE RECORD"] for input in input_batch]
+        text_batch = [str(self.recordings_df[self.recordings_df.SUBJECT == input].iloc[0]["DESCRIPTION OF THE RECORD"]) for input in input_batch]
 
         #text_batch = [self.trimming(sentence) for sentence in text_batch]
 
@@ -155,18 +159,20 @@ class EEGClipModule(pl.LightningModule):
         self,
         eeg_classifier_model, 
         lr,
+        recordings_df,
         temperature=CFG.temperature,
         eeg_embedding_dim=CFG.eeg_embedding_dim,
         text_embedding_dim=CFG.text_embedding_dim,
     ):
         super().__init__()
         self.eeg_encoder = EEGEncoder(eeg_classifier_model)
-        self.text_encoder = TextEncoder()
+        self.text_encoder = TextEncoder(recordings_df)
         self.eeg_projection = ProjectionHead(embedding_dim=eeg_embedding_dim)
         self.text_projection = ProjectionHead(embedding_dim=text_embedding_dim)
         self.temperature = temperature
         self.eeg_classifier_model = eeg_classifier_model
         self.lr = lr
+        self.recordings_df = recordings_df
 
 
     def forward(self, batch):
@@ -209,31 +215,43 @@ class EEGClipModule(pl.LightningModule):
         eeg_embeddings, text_embeddings, y = self.forward(batch)
 
         input_batch = y.cpu().numpy()
-        label_batch = [CFG.recordings_df[CFG.recordings_df.SUBJECT == input].iloc[0]["LABEL"] for input in input_batch]
+        label_batch = [self.recordings_df[self.recordings_df.SUBJECT == input].iloc[0]["LABEL"] for input in input_batch]
         label_batch = [1 if label == "normal" else 0 for label in label_batch]
         label_batch = torch.IntTensor(label_batch)
 
-        return text_embeddings, label_batch
+        return eeg_embeddings, label_batch
 
     
     def validation_epoch_end(self, outputs):
-            # get rid of last batch if it is smaller than batch_size
+        # get rid of last batch if it is smaller than batch_size
         if len(outputs) > 1:
             outputs = outputs[:-1]
         features, targets = zip(*outputs)
+
         features = torch.stack(features)
         targets = torch.stack(targets)
-        features = features.reshape(-1, features.shape[-1])
-        targets = targets.reshape(-1)
+
+        features = features.reshape(-1, features.shape[-1]).cpu()
+        targets = targets.reshape(-1).cpu()
+
+        features2d = TSNE(n_components=2).fit_transform(features)
+        plt.scatter([a[0] for a in features2d],
+            [a[1] for a in features2d],
+            c=targets)
+        plt.savefig("results/clip_graphs/tsne_map.png")
+        
         features_train, features_test, targets_train, targets_test = train_test_split(features, targets, shuffle=True)
         print(torch.sum(targets_train)/targets_train.shape[0],torch.sum(targets_test)/targets_test.shape[0])
         
         neigh = KNeighborsClassifier(n_neighbors=min(targets.shape[0],20))
-        neigh.fit(features_train.cpu(), targets_train.cpu())
+        neigh.fit(features_train, targets_train)
 
-        pred_labels_knn = neigh.predict(features_test.cpu())
+        pred_labels_knn = neigh.predict(features_test)
 
-        accuracy = (pred_labels_knn == targets_test.cpu().tolist()).mean().item()# / features.size(0)
+        print(pred_labels_knn)
+        print(targets_test.cpu().tolist())
+
+        accuracy = (pred_labels_knn == targets_test.tolist()).mean().item()# / features.size(0)
         self.log('knn_acc', accuracy, prog_bar=True)
         return accuracy
         """

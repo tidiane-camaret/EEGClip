@@ -1,3 +1,4 @@
+import pandas as pd
 import numpy as np
 import torch 
 
@@ -18,7 +19,7 @@ mne.set_log_level('ERROR')  # avoid messages everytime a window is extracted
 
 n_jobs = 4
 data_path = '/home/jovyan/mne_data/TUH_PRE/tuh_eeg_abnormal/v2.0.0/edf/'
-N_SAMPLES = 80
+recording_ids=range(100,260)
 N_JOBS = 8 
 
 
@@ -32,7 +33,7 @@ tuabn = TUHAbnormal(
         add_physician_reports=True, 
         n_jobs=n_jobs,
         target_name = 'subject',
-        recording_ids=list(range(N_SAMPLES)),
+        recording_ids=recording_ids,
     )
 
 
@@ -86,13 +87,13 @@ tuh_windows = create_fixed_length_windows(
 
 )
 
-#splitted = tuh_windows.split("train")
-window_train_set, window_valid_set = torch.utils.data.random_split(tuh_windows,[0.7, 0.3]) #splitted['True'], splitted['False'] 
+print("length of windowed dataset : ", len(tuh_windows))
+window_train_set, window_valid_set = torch.utils.data.random_split(tuh_windows,[0.8, 0.2]) #splitted['True'], splitted['False'] 
 
 
 batch_size = 32
 num_workers = 32
-n_epochs = 50
+n_epochs = 100
 
 train_loader = torch.utils.data.DataLoader(
     window_train_set,
@@ -100,12 +101,7 @@ train_loader = torch.utils.data.DataLoader(
     shuffle=True,
     num_workers=num_workers,
     drop_last=True)
-train_det_loader = torch.utils.data.DataLoader(
-    window_train_set,
-    batch_size=batch_size,
-    shuffle=False,
-    num_workers=num_workers,
-    drop_last=False)
+
 valid_loader = torch.utils.data.DataLoader(
     window_valid_set,
     batch_size=batch_size,
@@ -145,11 +141,28 @@ trainer = Trainer(
     max_epochs=n_epochs,
     #callbacks=[TQDMProgressBar(refresh_rate=20)],
     logger=logger,
-    profiler="advanced"
+    #profiler="advanced"
 )
 
-trainer.fit(EEGClipModule(eeg_classifier_model=eeg_classifier_model, lr = lr), train_loader, valid_loader)
+"""
+trainer.validate(                
+                EEGClipModule(
+                         eeg_classifier_model=eeg_classifier_model,
+                         lr = lr, 
+                         recordings_df = pd.read_csv('/home/jovyan/EEGClip/data/TUH_Abnormal_EEG_rep.csv')
+                         ), 
+                         dataloaders=valid_loader
+                )
+
+"""
+trainer.fit(
+                EEGClipModule(
+                         eeg_classifier_model=eeg_classifier_model,
+                         lr = lr, 
+                         recordings_df = pd.read_csv('/home/jovyan/EEGClip/data/TUH_Abnormal_EEG_rep.csv')
+                         ),
+                train_loader, 
+                valid_loader
+            )
 
 
-
-EEGClipModule.EEGClassifier.model
