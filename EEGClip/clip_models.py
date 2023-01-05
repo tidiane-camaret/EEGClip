@@ -10,12 +10,15 @@ from sklearn.manifold import TSNE
 
 from sklearn.model_selection import train_test_split
 from sklearn.neighbors import KNeighborsClassifier
-
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import balanced_accuracy_score
 import torch
 from torch import nn
 import torch.nn.functional as F
 from transformers import DistilBertModel, DistilBertConfig, DistilBertTokenizer
 import pytorch_lightning as pl
+
+import wandb 
 
 class CFG:
 
@@ -33,15 +36,15 @@ class CFG:
     factor = 0.8
 
     eeg_embedding_dim = 128 #768 #2048
-    nb_categories = 2
+    #nb_categories = 2
     category_embedding_dim = 768
     text_encoder_model = "distilbert-base-uncased"
     text_embedding_dim = 768
     text_tokenizer = "distilbert-base-uncased"
     max_length = 200
 
-    pretrained_text_model = True
-    trainable_text_model = False
+    pretrained_text_model = False
+    trainable_text_model = True
     trainable_eeg_model = True
 
     temperature = 1.0
@@ -214,6 +217,19 @@ class EEGClipModule(pl.LightningModule):
     def validation_step(self, batch, batch_idx):
         eeg_embeddings, text_embeddings, y = self.forward(batch)
 
+        logits = (text_embeddings @ eeg_embeddings.T) / self.temperature
+        eeg_similarity = eeg_embeddings @ eeg_embeddings.T
+        texts_similarity = text_embeddings @ text_embeddings.T
+        targets = F.softmax(
+            (eeg_similarity + texts_similarity) / 2 * self.temperature, dim=-1
+        )
+        texts_loss = cross_entropy(logits, targets, reduction='none')
+        eeg_loss = cross_entropy(logits.T, targets.T, reduction='none')
+        loss =  (eeg_loss + texts_loss) / 2.0 # shape: (batch_size)
+        loss = loss.mean()
+
+        self.log('val_loss', loss, prog_bar=True)
+
         input_batch = y.cpu().numpy()
         label_batch = [self.recordings_df[self.recordings_df.SUBJECT == input].iloc[0]["LABEL"] for input in input_batch]
         label_batch = [1 if label == "normal" else 0 for label in label_batch]
@@ -238,37 +254,35 @@ class EEGClipModule(pl.LightningModule):
         plt.scatter([a[0] for a in features2d],
             [a[1] for a in features2d],
             c=targets)
+
         plt.savefig("results/clip_graphs/tsne_map.png")
+        #wandb.log({"chart": fig})
+        
+        self.logger.experiment.log({
+            "2d projection of eeg embeddings": wandb.Image("results/clip_graphs/tsne_map.png") 
+        })
+
+        
         
         features_train, features_test, targets_train, targets_test = train_test_split(features, targets, shuffle=True)
-        print(torch.sum(targets_train)/targets_train.shape[0],torch.sum(targets_test)/targets_test.shape[0])
+        print("balance in train set : ", torch.sum(targets_train)/targets_train.shape[0])
+        print("balance in test set : ", torch.sum(targets_test)/targets_test.shape[0])
         
-        neigh = KNeighborsClassifier(n_neighbors=min(targets.shape[0],20))
-        neigh.fit(features_train, targets_train)
-
-        pred_labels_knn = neigh.predict(features_test)
-
-        print(pred_labels_knn)
-        print(targets_test.cpu().tolist())
-
-        accuracy = (pred_labels_knn == targets_test.tolist()).mean().item()# / features.size(0)
-        self.log('knn_acc', accuracy, prog_bar=True)
-        return accuracy
+        neigh_classifier = KNeighborsClassifier(n_neighbors=min(targets.shape[0],5))
+        neigh_classifier.fit(features_train, targets_train)
+        pred_labels_knn = neigh_classifier.predict(features_test)
+        knn_accuracy = balanced_accuracy_score(targets_test.tolist(), pred_labels_knn)
+        self.log('knn_acc', knn_accuracy, prog_bar=True)
+        """
+        logreg_classifier = LogisticRegression(random_state=0, max_iter=1000, verbose=0)
+        logreg_classifier.fit(features_train, targets_train)
+        pred_labels_logreg = logreg_classifier.predict(features_test)
+        logreg_accuracy = balanced_accuracy_score(targets_test.tolist(), pred_labels_logreg)
+        self.log('logreg__acc', logreg_accuracy, prog_bar=True)
         """
 
-        logits = (text_embeddings @ eeg_embeddings.T) / self.temperature
-        categories_similarity = eeg_embeddings @ eeg_embeddings.T
-        texts_similarity = text_embeddings @ text_embeddings.T
-        targets = F.softmax(
-            (categories_similarity + texts_similarity) / 2 * self.temperature, dim=-1
-        )
-        texts_loss = cross_entropy(logits, targets, reduction='none')
-        categories_loss = cross_entropy(logits.T, targets.T, reduction='none')
-        loss =  (categories_loss + texts_loss) / 2.0 # shape: (batch_size)
-        loss = loss.mean()
-        self.log('validation_loss', loss, on_epoch = True, prog_bar=True)
-        return loss
-        """
+        return None
+
 
 
 

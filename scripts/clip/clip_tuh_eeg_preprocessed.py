@@ -9,7 +9,7 @@ from braindecode.models import ShallowFBCSPNet, deep4
 from braindecode.preprocessing import create_fixed_length_windows
 
 from pytorch_lightning.callbacks.progress import TQDMProgressBar
-from pytorch_lightning.loggers import TensorBoardLogger
+from pytorch_lightning.loggers import TensorBoardLogger, WandbLogger
 from pytorch_lightning import Trainer
 
 from EEGClip.clip_models import EEGClipModule
@@ -19,7 +19,7 @@ mne.set_log_level('ERROR')  # avoid messages everytime a window is extracted
 
 n_jobs = 4
 data_path = '/home/jovyan/mne_data/TUH_PRE/tuh_eeg_abnormal/v2.0.0/edf/'
-recording_ids=range(100,260)
+recording_ids=range(500)
 N_JOBS = 8 
 
 
@@ -38,7 +38,7 @@ tuabn = TUHAbnormal(
 
 
 
-"""
+
 subject_datasets = tuabn.split('subject')
 n_subjects = len(subject_datasets)
 
@@ -55,11 +55,11 @@ valid_set = BaseConcatDataset(valid_sets)
 #input_window_samples = 2000
 #window_stride_samples = 1000
 #n_preds_per_input = 1000
-"""
+
 
 window_size_samples = 1000
 window_stride_samples = 1000
-"""
+
 window_train_set = create_fixed_length_windows(
     train_set,
     window_size_samples=window_size_samples,
@@ -90,7 +90,7 @@ tuh_windows = create_fixed_length_windows(
 print("length of windowed dataset : ", len(tuh_windows))
 window_train_set, window_valid_set = torch.utils.data.random_split(tuh_windows,[0.8, 0.2]) #splitted['True'], splitted['False'] 
 
-
+"""
 batch_size = 32
 num_workers = 32
 n_epochs = 100
@@ -116,7 +116,7 @@ n_classes = 128
 n_chans = window_train_set[0][0].shape[0]
 input_window_samples = window_train_set[0][0].shape[1]
 
-eeg_classifier_model = ShallowFBCSPNet(
+eeg_classifier_model = deep4.Deep4Net(
     n_chans,
     n_classes,
     input_window_samples=input_window_samples,
@@ -125,22 +125,22 @@ eeg_classifier_model = ShallowFBCSPNet(
 
 
 # These values we found good for shallow network:
-lr = 0.0625 * 0.01
-weight_decay = 0
+#lr = 0.0625 * 0.01
+#weight_decay = 0
 
 # For deep4 they should be:
-# lr = 1 * 0.01
-# weight_decay = 0.5 * 0.001
+lr = 1 * 0.01
+weight_decay = 0.5 * 0.001
 
-
-logger = TensorBoardLogger("results/tb_logs", name="EEG_Clip")
+wandb_logger = WandbLogger(project="EEGClip",save_dir = "results/wandb")
+#logger = TensorBoardLogger("results/tb_logs", name="EEG_Clip")
 
 trainer = Trainer(
     devices=1,
     accelerator="gpu",
     max_epochs=n_epochs,
     #callbacks=[TQDMProgressBar(refresh_rate=20)],
-    logger=logger,
+    logger=wandb_logger,
     #profiler="advanced"
 )
 
