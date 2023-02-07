@@ -19,7 +19,7 @@ mne.set_log_level('ERROR')  # avoid messages everytime a window is extracted
 
 n_jobs = 4
 data_path = '/home/jovyan/mne_data/TUH_PRE/tuh_eeg_abnormal/v2.0.0/edf/'
-recording_ids=range(500)
+recording_ids=range(150)
 N_JOBS = 8 
 
 

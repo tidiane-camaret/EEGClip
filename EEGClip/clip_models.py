@@ -72,7 +72,7 @@ class TextEncoder(nn.Module):
 
         self.tokenizer = DistilBertTokenizer.from_pretrained(CFG.text_tokenizer)
 
-        self.trimming = lambda sentence : sentence[sentence.find('DESCRIPTION OF THE RECORD:'):sentence.find('HR:')]
+        #self.trimming = lambda sentence : sentence[sentence.find('DESCRIPTION OF THE RECORD:'):sentence.find('HR:')]
 
         self.recordings_df = recordings_df
 
@@ -85,7 +85,8 @@ class TextEncoder(nn.Module):
 
         input_batch = input_batch.cpu().numpy()
 
-        text_batch = [str(self.recordings_df[self.recordings_df.SUBJECT == input].iloc[0]["DESCRIPTION OF THE RECORD"]) for input in input_batch]
+        #text_batch = [str(self.recordings_df[self.recordings_df.SUBJECT == input].iloc[0]["DESCRIPTION OF THE RECORD"]) for input in input_batch]
+        text_batch = [str(self.recordings_df[self.recordings_df.SUBJECT == input].iloc[0]["IMPRESSION"]) for input in input_batch]
 
         #text_batch = [self.trimming(sentence) for sentence in text_batch]
 
