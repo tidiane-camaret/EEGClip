@@ -17,14 +17,12 @@ from EEGClip.clip_models import EEGClipModule
 import mne
 mne.set_log_level('ERROR')  # avoid messages everytime a window is extracted
 
-n_jobs = 4
 data_path = '/home/jovyan/mne_data/TUH_PRE/tuh_eeg_abnormal_clip/v2.0.0/edf/'
-recording_ids=range(4)
-N_JOBS = 8 
 
-
-sfreq  = 100
-n_minutes = 20
+n_jobs = 4
+n_epochs = 100
+batch_size = 32
+num_workers = 0
 
 
 tuabn = TUHAbnormal(
@@ -33,7 +31,7 @@ tuabn = TUHAbnormal(
         add_physician_reports=True, 
         n_jobs=n_jobs,
         target_name = 'report',
-        recording_ids=recording_ids,
+        #recording_ids=range(150),
     )
 
 
@@ -65,7 +63,7 @@ window_train_set = create_fixed_length_windows(
     window_size_samples=window_size_samples,
     window_stride_samples=window_stride_samples,
     drop_last_window=True,
-    n_jobs=N_JOBS,
+    n_jobs=n_jobs,
 
 )
 window_valid_set = create_fixed_length_windows(
@@ -73,7 +71,7 @@ window_valid_set = create_fixed_length_windows(
     window_size_samples=window_size_samples,
     window_stride_samples=window_stride_samples,
     drop_last_window=False,
-    n_jobs=N_JOBS,
+    n_jobs=n_jobs,
 
 )
 """
@@ -91,9 +89,7 @@ print("length of windowed dataset : ", len(tuh_windows))
 window_train_set, window_valid_set = torch.utils.data.random_split(tuh_windows,[0.8, 0.2]) #splitted['True'], splitted['False'] 
 
 """
-batch_size = 32
-num_workers = 32
-n_epochs = 100
+
 
 train_loader = torch.utils.data.DataLoader(
     window_train_set,
@@ -105,7 +101,7 @@ train_loader = torch.utils.data.DataLoader(
 valid_loader = torch.utils.data.DataLoader(
     window_valid_set,
     batch_size=batch_size,
-    shuffle=False,
+    shuffle=True,
     num_workers=num_workers,
     drop_last=False)
 

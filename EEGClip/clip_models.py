@@ -78,10 +78,6 @@ class TextEncoder(nn.Module):
 
     def forward(self, input_batch): #input_ids, attention_mask):
 
-        #print("nb of ids : ", input.cpu().numpy().shape)
-
-        #input_batch = list(input_batch)
-        #print(input_batch)
 
         #input_batch = input_batch.cpu().numpy()
         #print("nb of sentences : ", len(text_batch))
@@ -177,18 +173,18 @@ class EEGClipModule(pl.LightningModule):
 
 
     def forward(self, batch):
-        x, y, z = batch
-        print(y)
+        eeg_batch, string_batch, id_batch = batch
+
         #print("CALCULATING EEG FEATURES")
-        eeg_features = self.eeg_encoder(x)
+        eeg_features = self.eeg_encoder(eeg_batch)
         #print("CALCULATING TEXT FEATURES")
-        text_features = self.text_encoder(y)
+        text_features = self.text_encoder(string_batch)
         #print("PROJECTING EEG FEATURES")
         eeg_embeddings = self.eeg_projection(eeg_features)
         #print("PROJECTING TEXT FEATURES")
         text_embeddings = self.text_projection(text_features)
 
-        return eeg_embeddings, text_embeddings, y
+        return eeg_embeddings, text_embeddings, string_batch
 
     def training_step(self, batch, batch_idx):
         eeg_embeddings, text_embeddings, _ = self.forward(batch)
@@ -214,7 +210,7 @@ class EEGClipModule(pl.LightningModule):
 
 
     def validation_step(self, batch, batch_idx):
-        eeg_embeddings, text_embeddings, y = self.forward(batch)
+        eeg_embeddings, text_embeddings, string_batch = self.forward(batch)
 
         logits = (text_embeddings @ eeg_embeddings.T) / self.temperature
         eeg_similarity = eeg_embeddings @ eeg_embeddings.T
@@ -229,9 +225,10 @@ class EEGClipModule(pl.LightningModule):
 
         self.log('val_loss', loss, prog_bar=True)
 
-        print(y)
-        string_batch = y
-        label_batch = [1 if "normal" in string else 0 for string in string_batch]
+
+        string_batch = [string[string.find('IMPRESSION:'):string.find('CLINICAL CORRELATION:')] for string in string_batch]
+        #print(string_batch)
+        label_batch = [1 if "abnormal" in string.lower() else 0 for string in string_batch]
         label_batch = torch.IntTensor(label_batch)
 
         return eeg_embeddings, label_batch
