@@ -8,7 +8,7 @@ from braindecode.preprocessing import (
     preprocess, Preprocessor, create_fixed_length_windows, create_windows_from_events, scale as multiply)
 import torch
 from braindecode.util import set_random_seeds
-
+from pytorch_lightning.loggers import TensorBoardLogger, WandbLogger
 from braindecode.models import ShallowFBCSPNet, deep4
 from skorch.callbacks import LRScheduler
 from skorch.helper import predefined_split
@@ -23,12 +23,12 @@ mne.set_log_level('ERROR')  # avoid messages everytime a window is extracted
 
 TUHAbnormal_PATH = '/home/jovyan/mne_data/TUH/tuh_eeg_abnormal/v2.0.0'
 N_JOBS = 8  # specify the number of jobs for loading and windowing
-N_SAMPLES = 100
+N_SAMPLES = 30
 
 tuh = TUHAbnormal(
     path=TUHAbnormal_PATH,
     recording_ids=list(range(N_SAMPLES)),
-    target_name=('report'),#'pathological'),
+    target_name=('report'),#,'pathological'),
     preload=False,
     add_physician_reports=True,
     n_jobs=N_JOBS, 
@@ -109,7 +109,8 @@ valid_loader = torch.utils.data.DataLoader(valid_set,
                                            shuffle=False,
                                            drop_last=False)
 
-logger = TensorBoardLogger("results/tb_logs", name="EEG_Clip")
+wandb_logger = WandbLogger(project="EEGClip",save_dir = "results/wandb")
+#logger = TensorBoardLogger("results/tb_logs", name="EEG_Clip")
 
 trainer = Trainer(
     devices=1,
@@ -117,8 +118,16 @@ trainer = Trainer(
     #devices=None, #1 if torch.cuda.is_available() else None,  
     max_epochs=n_epochs,
     #callbacks=[TQDMProgressBar(refresh_rate=20)],
-    logger=logger,
+    logger=wandb_logger,
     profiler="advanced"
 )
 
-trainer.fit(EEGClipModule(eeg_classifier_model=eeg_classifier_model, lr = lr), train_loader, valid_loader)
+trainer.fit(
+                EEGClipModule(
+                         eeg_classifier_model=eeg_classifier_model,
+                         lr = lr, 
+                         recordings_df = pd.read_csv('/home/jovyan/EEGClip/data/TUH_Abnormal_EEG_rep.csv')
+                         ),
+                train_loader, 
+                valid_loader
+            )

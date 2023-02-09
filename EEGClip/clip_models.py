@@ -83,14 +83,16 @@ class TextEncoder(nn.Module):
         #input_batch = list(input_batch)
         #print(input_batch)
 
-        input_batch = input_batch.cpu().numpy()
+        #input_batch = input_batch.cpu().numpy()
 
         #text_batch = [str(self.recordings_df[self.recordings_df.SUBJECT == input].iloc[0]["DESCRIPTION OF THE RECORD"]) for input in input_batch]
-        text_batch = [str(self.recordings_df[self.recordings_df.SUBJECT == input].iloc[0]["IMPRESSION"]) for input in input_batch]
+        #text_batch = [str(self.recordings_df[self.recordings_df.SUBJECT == input].iloc[0]["IMPRESSION"]) for input in input_batch]
 
         #text_batch = [self.trimming(sentence) for sentence in text_batch]
 
         #print("nb of sentences : ", len(text_batch))
+
+        text_batch = list(input_batch)
 
         tokenized_text = self.tokenizer(
             text_batch, padding=True, truncation=True, max_length=CFG.max_length
@@ -214,7 +216,7 @@ class EEGClipModule(pl.LightningModule):
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max = self.trainer.max_epochs - 1)
         return [optimizer], [scheduler]
 
-
+    """
     def validation_step(self, batch, batch_idx):
         eeg_embeddings, text_embeddings, y = self.forward(batch)
 
@@ -274,16 +276,17 @@ class EEGClipModule(pl.LightningModule):
         pred_labels_knn = neigh_classifier.predict(features_test)
         knn_accuracy = balanced_accuracy_score(targets_test.tolist(), pred_labels_knn)
         self.log('knn_acc', knn_accuracy, prog_bar=True)
-        """
+
         logreg_classifier = LogisticRegression(random_state=0, max_iter=1000, verbose=0)
         logreg_classifier.fit(features_train, targets_train)
         pred_labels_logreg = logreg_classifier.predict(features_test)
         logreg_accuracy = balanced_accuracy_score(targets_test.tolist(), pred_labels_logreg)
         self.log('logreg__acc', logreg_accuracy, prog_bar=True)
-        """
+
 
         return None
 
+    """
 
 
 
