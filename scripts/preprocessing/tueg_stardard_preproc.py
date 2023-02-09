@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import mne
 
-from braindecode.datasets.tuh import _parse_age_and_gender_from_edf_header
+from braindecode.datasets.tuh import _parse_age_and_gender_from_edf_header, _read_physician_report
 
 
 ar_ch_names = sorted([
@@ -93,6 +93,7 @@ def preprocess(file_path, min_mins, max_hours):
     # is preserved and can still be parsed with braindecode
     # TUH dataset classes
     age, gender = _parse_age_and_gender_from_edf_header(file_path)
+    physician_report = _read_physician_report(file_path)
     gender_map = {'F': 0, 'M': 1, 'X': 2}
     raw.info['subject_info'] = {
         # y, m, d
@@ -107,6 +108,7 @@ def preprocess(file_path, min_mins, max_hours):
         # 'Age:<age>' as this is what the braindecode classes parse
         # since this is how it was written in the original tuh file headers
         'hand': ' '.join(['None', f'Age:{age}']),
+        'report' : physician_report
     }
     return raw
 
@@ -121,7 +123,8 @@ def save(raw, mean_n_std, file_path):
     # write the file
     try:
         mne.export.export_raw(file_path, raw, add_ch_type=True, overwrite=True)
-    except:
+    except Exception as e:
+        print(e)
         # some rec failed with 'RuntimeError: writeSamples() for channelFP1 returned error: -25'
         # but created an edf file on disk anyways that was corrupted
         # so if this happens, delete the file if it exists

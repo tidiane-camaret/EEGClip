@@ -11,7 +11,7 @@ all_edf_paths = glob.glob(tueg_path + '**/*.edf', recursive=True)
 
 
 error_log = []
-for edf_in_path in all_edf_paths[:200]:
+for edf_in_path in all_edf_paths:
     print("processing " + edf_in_path)
     try:
         standard_preproc(
