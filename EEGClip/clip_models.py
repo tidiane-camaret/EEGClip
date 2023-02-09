@@ -72,7 +72,7 @@ class TextEncoder(nn.Module):
 
         self.tokenizer = DistilBertTokenizer.from_pretrained(CFG.text_tokenizer)
 
-        #self.trimming = lambda sentence : sentence[sentence.find('DESCRIPTION OF THE RECORD:'):sentence.find('HR:')]
+        self.trimming = lambda sentence : sentence[sentence.find('DESCRIPTION OF THE RECORD:'):sentence.find('HR:')]
 
         self.recordings_df = recordings_df
 
@@ -84,15 +84,10 @@ class TextEncoder(nn.Module):
         #print(input_batch)
 
         #input_batch = input_batch.cpu().numpy()
-
-        #text_batch = [str(self.recordings_df[self.recordings_df.SUBJECT == input].iloc[0]["DESCRIPTION OF THE RECORD"]) for input in input_batch]
-        #text_batch = [str(self.recordings_df[self.recordings_df.SUBJECT == input].iloc[0]["IMPRESSION"]) for input in input_batch]
-
-        #text_batch = [self.trimming(sentence) for sentence in text_batch]
-
         #print("nb of sentences : ", len(text_batch))
 
         text_batch = list(input_batch)
+        #text_batch = [self.trimming(sentence) for sentence in text_batch]
 
         tokenized_text = self.tokenizer(
             text_batch, padding=True, truncation=True, max_length=CFG.max_length
@@ -183,6 +178,7 @@ class EEGClipModule(pl.LightningModule):
 
     def forward(self, batch):
         x, y, z = batch
+        print(y)
         #print("CALCULATING EEG FEATURES")
         eeg_features = self.eeg_encoder(x)
         #print("CALCULATING TEXT FEATURES")
@@ -216,7 +212,7 @@ class EEGClipModule(pl.LightningModule):
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max = self.trainer.max_epochs - 1)
         return [optimizer], [scheduler]
 
-    """
+
     def validation_step(self, batch, batch_idx):
         eeg_embeddings, text_embeddings, y = self.forward(batch)
 
@@ -233,9 +229,9 @@ class EEGClipModule(pl.LightningModule):
 
         self.log('val_loss', loss, prog_bar=True)
 
-        input_batch = y.cpu().numpy()
-        label_batch = [self.recordings_df[self.recordings_df.SUBJECT == input].iloc[0]["LABEL"] for input in input_batch]
-        label_batch = [1 if label == "normal" else 0 for label in label_batch]
+        print(y)
+        string_batch = y
+        label_batch = [1 if "normal" in string else 0 for string in string_batch]
         label_batch = torch.IntTensor(label_batch)
 
         return eeg_embeddings, label_batch
@@ -286,7 +282,7 @@ class EEGClipModule(pl.LightningModule):
 
         return None
 
-    """
+
 
 
 

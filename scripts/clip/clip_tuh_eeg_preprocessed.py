@@ -18,8 +18,8 @@ import mne
 mne.set_log_level('ERROR')  # avoid messages everytime a window is extracted
 
 n_jobs = 4
-data_path = '/home/jovyan/mne_data/TUH_PRE/tuh_eeg_abnormal/v2.0.0/edf/'
-recording_ids=range(150)
+data_path = '/home/jovyan/mne_data/TUH_PRE/tuh_eeg_abnormal_clip/v2.0.0/edf/'
+recording_ids=range(4)
 N_JOBS = 8 
 
 
@@ -32,7 +32,7 @@ tuabn = TUHAbnormal(
         preload=False,  # True
         add_physician_reports=True, 
         n_jobs=n_jobs,
-        target_name = 'subject',
+        target_name = 'report',
         recording_ids=recording_ids,
     )
 
