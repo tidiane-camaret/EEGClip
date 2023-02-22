@@ -22,7 +22,7 @@ import timm
 from transformers import DistilBertModel, DistilBertConfig, DistilBertTokenizer
 
 # %%
-tuh_data = pd.read_csv('../data/TUH_Abnormal_EEG_rep.csv') #open the original dataset
+tuh_data = pd.read_csv('/home/jovyan/EEGClip/data/TUH_Abnormal_EEG_rep.csv') #open the original dataset
 tuh_data = tuh_data.drop([0]).dropna(subset=['DESCRIPTION OF THE RECORD']) #drop first line
 tuh_data = tuh_data.rename(columns={"DESCRIPTION OF THE RECORD": "DESC"})
 tuh_data['CAT'] = tuh_data.LABEL.astype('category').cat.codes

@@ -245,7 +245,7 @@ class EEGClipModule(pl.LightningModule):
 
         features = features.reshape(-1, features.shape[-1]).cpu()
         targets = targets.reshape(-1).cpu()
-
+        """
         features2d = TSNE(n_components=2).fit_transform(features)
         plt.scatter([a[0] for a in features2d],
             [a[1] for a in features2d],
@@ -258,7 +258,7 @@ class EEGClipModule(pl.LightningModule):
             "2d projection of eeg embeddings": wandb.Image("results/clip_graphs/tsne_map.png") 
         })
 
-        
+        """
         
         features_train, features_test, targets_train, targets_test = train_test_split(features, targets, shuffle=True)
         print("balance in train set : ", torch.sum(targets_train)/targets_train.shape[0])
