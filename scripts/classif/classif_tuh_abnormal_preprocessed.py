@@ -97,6 +97,7 @@ eeg_classifier_model = deep4.Deep4Net(
     n_classes,
     input_window_samples=input_window_samples,
     final_conv_length='auto',
+    stride_before_pool=True
 )
 
 ## USING BRAINDECODE EEGCLASSIFIER METHOD

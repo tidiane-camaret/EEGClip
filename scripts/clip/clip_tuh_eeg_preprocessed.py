@@ -31,7 +31,7 @@ tuabn = TUHAbnormal(
         add_physician_reports=True, 
         n_jobs=n_jobs,
         target_name = 'report',
-        #recording_ids=range(150),
+        #recording_ids=range(15),
     )
 
 
@@ -57,7 +57,7 @@ valid_set = BaseConcatDataset(valid_sets)
 
 window_size_samples = 1000
 window_stride_samples = 1000
-
+"""
 window_train_set = create_fixed_length_windows(
     train_set,
     window_size_samples=window_size_samples,
@@ -81,14 +81,14 @@ tuh_windows = create_fixed_length_windows(
     window_size_samples=window_size_samples,
     window_stride_samples=window_stride_samples,
     drop_last_window=False,
-    n_jobs=N_JOBS,
+    n_jobs=n_jobs,
 
 )
 
 print("length of windowed dataset : ", len(tuh_windows))
 window_train_set, window_valid_set = torch.utils.data.random_split(tuh_windows,[0.8, 0.2]) #splitted['True'], splitted['False'] 
 
-"""
+
 
 
 train_loader = torch.utils.data.DataLoader(
@@ -117,6 +117,7 @@ eeg_classifier_model = deep4.Deep4Net(
     n_classes,
     input_window_samples=input_window_samples,
     final_conv_length='auto',
+    stride_before_pool=True
 )
 
 
@@ -125,7 +126,7 @@ eeg_classifier_model = deep4.Deep4Net(
 #weight_decay = 0
 
 # For deep4 they should be:
-lr = 1 * 0.01
+lr = 1 * 0.001
 weight_decay = 0.5 * 0.001
 
 wandb_logger = WandbLogger(project="EEGClip",save_dir = "results/wandb")
