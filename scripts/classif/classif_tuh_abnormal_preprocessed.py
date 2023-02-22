@@ -12,7 +12,7 @@ from pytorch_lightning.callbacks.progress import TQDMProgressBar
 from pytorch_lightning.loggers import TensorBoardLogger, WandbLogger
 from pytorch_lightning import Trainer
 
-from EEGClip.clip_models import EEGClipModule
+from EEGClip.classifier_models import EEGClassifierModule
 
 import mne
 mne.set_log_level('ERROR')  # avoid messages everytime a window is extracted
@@ -21,8 +21,8 @@ data_path = '/home/jovyan/mne_data/TUH_PRE/tuh_eeg_abnormal_clip/v2.0.0/edf/'
 
 n_jobs = 4
 n_epochs = 100
-batch_size = 32
-num_workers = 0
+batch_size = 64
+num_workers = 16
 
 
 tuabn = TUHAbnormal(
@@ -30,11 +30,9 @@ tuabn = TUHAbnormal(
         preload=False,  # True
         add_physician_reports=True, 
         n_jobs=n_jobs,
-        target_name = 'report',
-        #recording_ids=range(15),
+        target_name = ('pathological'),#'report'),
+        #recording_ids=range(150),
     )
-
-
 
 
 subject_datasets = tuabn.split('subject')
@@ -50,14 +48,9 @@ valid_set = BaseConcatDataset(valid_sets)
 
 
 
-#input_window_samples = 2000
-#window_stride_samples = 1000
-#n_preds_per_input = 1000
-
-
 window_size_samples = 1000
 window_stride_samples = 1000
-"""
+
 window_train_set = create_fixed_length_windows(
     train_set,
     window_size_samples=window_size_samples,
@@ -74,21 +67,6 @@ window_valid_set = create_fixed_length_windows(
     n_jobs=n_jobs,
 
 )
-"""
-
-tuh_windows = create_fixed_length_windows(
-    tuabn,
-    window_size_samples=window_size_samples,
-    window_stride_samples=window_stride_samples,
-    drop_last_window=False,
-    n_jobs=n_jobs,
-
-)
-
-print("length of windowed dataset : ", len(tuh_windows))
-window_train_set, window_valid_set = torch.utils.data.random_split(tuh_windows,[0.8, 0.2]) #splitted['True'], splitted['False'] 
-
-
 
 
 train_loader = torch.utils.data.DataLoader(
@@ -106,8 +84,10 @@ valid_loader = torch.utils.data.DataLoader(
     drop_last=False)
 
 
+lr = 1 * 0.001
+weight_decay = 0.5 * 0.001
 
-n_classes = 128
+n_classes = 2
 # Extract number of chans and time steps from dataset
 n_chans = window_train_set[0][0].shape[0]
 input_window_samples = window_train_set[0][0].shape[1]
@@ -120,16 +100,38 @@ eeg_classifier_model = deep4.Deep4Net(
     stride_before_pool=True
 )
 
+## USING BRAINDECODE EEGCLASSIFIER METHOD
+from skorch.callbacks import LRScheduler
+from skorch.helper import predefined_split
 
-# These values we found good for shallow network:
-#lr = 0.0625 * 0.01
-#weight_decay = 0
+from braindecode import EEGClassifier
 
-# For deep4 they should be:
-lr = 1 * 0.001
-weight_decay = 0.5 * 0.001
+cuda = torch.cuda.is_available()
+device = 'cuda' if cuda else 'cpu'
+if cuda:
+    eeg_classifier_model.cuda()
 
-wandb_logger = WandbLogger(project="EEGClip",save_dir = "results/wandb")
+clf = EEGClassifier(
+    eeg_classifier_model,
+    criterion=torch.nn.NLLLoss,
+    optimizer=torch.optim.AdamW,
+    train_split=predefined_split(window_valid_set),  # using valid_set for validation
+    optimizer__lr=lr,
+    optimizer__weight_decay=weight_decay,
+    batch_size=batch_size,
+    callbacks=[
+        "accuracy", ("lr_scheduler", LRScheduler('CosineAnnealingLR', T_max=n_epochs - 1)),
+    ],
+    device=device,
+)
+# Model training for a specified number of epochs. `y` is None as it is already supplied
+# in the dataset.
+clf.fit(window_train_set, y=None, epochs=n_epochs)
+"""
+## USING CUSTOM CLASSIFIER
+
+
+wandb_logger = WandbLogger(project="EEGClip_classif",save_dir = "results/wandb")
 #logger = TensorBoardLogger("results/tb_logs", name="EEG_Clip")
 
 trainer = Trainer(
@@ -141,25 +143,12 @@ trainer = Trainer(
     #profiler="advanced"
 )
 
-"""
-trainer.validate(                
-                EEGClipModule(
-                         eeg_classifier_model=eeg_classifier_model,
-                         lr = lr, 
-                         recordings_df = pd.read_csv('/home/jovyan/EEGClip/data/TUH_Abnormal_EEG_rep.csv')
-                         ), 
-                         dataloaders=valid_loader
-                )
 
-"""
 trainer.fit(
-                EEGClipModule(
-                         eeg_classifier_model=eeg_classifier_model,
-                         lr = lr, 
-                         recordings_df = pd.read_csv('/home/jovyan/EEGClip/data/TUH_Abnormal_EEG_rep.csv')
-                         ),
-                train_loader, 
-                valid_loader
-            )
+    EEGClassifierModule(
+        eeg_classifier_model=eeg_classifier_model, 
+            lr = lr), 
+        train_loader, 
+        valid_loader)
 
-
+"""

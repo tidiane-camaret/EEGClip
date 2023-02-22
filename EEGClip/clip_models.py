@@ -25,23 +25,18 @@ class CFG:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     debug = False
-    batch_size = 32
     num_workers = 2
-    head_lr = 1e-3
-    #image_encoder_lr = 1e-4
-    category_encoder_lr = 1e-4
-    text_encoder_lr = 1e-5
     weight_decay = 1e-3
     patience = 1
     factor = 0.8
 
-    eeg_embedding_dim = 128 #768 #2048
-    #nb_categories = 2
-    category_embedding_dim = 768
+    eeg_embedding_dim = 256 #128 #768 #2048
+    nb_categories = 2
+    category_embedding_dim = 256 #768
     text_encoder_model = "distilbert-base-uncased"
     text_embedding_dim = 768
     text_tokenizer = "distilbert-base-uncased"
-    max_length = 200
+    max_length = 900
 
     pretrained_text_model = False
     trainable_text_model = True
@@ -72,27 +67,18 @@ class TextEncoder(nn.Module):
 
         self.tokenizer = DistilBertTokenizer.from_pretrained(CFG.text_tokenizer)
 
-        #self.trimming = lambda sentence : sentence[sentence.find('DESCRIPTION OF THE RECORD:'):sentence.find('HR:')]
+        self.trimming = lambda sentence : sentence[sentence.find('DESCRIPTION OF THE RECORD:'):sentence.find('HR:')]
 
         self.recordings_df = recordings_df
 
     def forward(self, input_batch): #input_ids, attention_mask):
 
-        #print("nb of ids : ", input.cpu().numpy().shape)
-
-        #input_batch = list(input_batch)
-        #print(input_batch)
 
         #input_batch = input_batch.cpu().numpy()
-
-        #text_batch = [str(self.recordings_df[self.recordings_df.SUBJECT == input].iloc[0]["DESCRIPTION OF THE RECORD"]) for input in input_batch]
-        #text_batch = [str(self.recordings_df[self.recordings_df.SUBJECT == input].iloc[0]["IMPRESSION"]) for input in input_batch]
-
-        #text_batch = [self.trimming(sentence) for sentence in text_batch]
-
         #print("nb of sentences : ", len(text_batch))
 
         text_batch = list(input_batch)
+        #text_batch = [self.trimming(sentence) for sentence in text_batch]
 
         tokenized_text = self.tokenizer(
             text_batch, padding=True, truncation=True, max_length=CFG.max_length
@@ -103,18 +89,22 @@ class TextEncoder(nn.Module):
         last_hidden_state = output.last_hidden_state
         return last_hidden_state[:, self.target_token_idx, :]
 
-"""
+
 class CategoryEncoder(nn.Module):
-    def __init__(self, pretrained=CFG.pretrained, trainable=CFG.trainable):
+    def __init__(self, pretrained=True, trainable=True):
         super().__init__()
         if pretrained:
-            self.model = nn.Embedding(CFG.nb_categories, CFG.category_embedding)
+            self.model = nn.Embedding(CFG.nb_categories, CFG.category_embedding_dim)
         else:
-            self.model = nn.Embedding.from_pretrained(torch.rand((CFG.nb_categories, CFG.category_embedding)))
+            self.model = nn.Embedding.from_pretrained(torch.rand((CFG.nb_categories, CFG.category_embedding_dim)))
             
         for p in self.model.parameters():
             p.requires_grad = trainable
-"""
+
+    def forward(self, input):
+        output = self.model(input)
+        return output
+
 class EEGEncoder(nn.Module):
     def __init__(self, eeg_classifier_model, trainable=CFG.trainable_eeg_model):
         super().__init__()
@@ -122,7 +112,6 @@ class EEGEncoder(nn.Module):
         self.model = eeg_classifier_model
         for p in self.model.parameters():
             p.requires_grad = trainable
-
     
     def forward(self, input):
         output = self.model(input)
@@ -173,6 +162,7 @@ class EEGClipModule(pl.LightningModule):
         super().__init__()
         self.eeg_encoder = EEGEncoder(eeg_classifier_model)
         self.text_encoder = TextEncoder(recordings_df)
+        self.category_encoder = CategoryEncoder()
         self.eeg_projection = ProjectionHead(embedding_dim=eeg_embedding_dim)
         self.text_projection = ProjectionHead(embedding_dim=text_embedding_dim)
         self.temperature = temperature
@@ -182,17 +172,25 @@ class EEGClipModule(pl.LightningModule):
 
 
     def forward(self, batch):
-        x, y, z = batch
+        eeg_batch, string_batch, id_batch = batch
+
+
+        string_batch = [string[string.find('IMPRESSION:'):string.find('CLINICAL CORRELATION:')] for string in string_batch]
+        #print(string_batch)
+        label_batch = [1 if "abnormal" in string.lower() else 0 for string in string_batch]
+        label_batch = torch.IntTensor(label_batch).to(CFG.device)
+
+
         #print("CALCULATING EEG FEATURES")
-        eeg_features = self.eeg_encoder(x)
+        eeg_features = self.category_encoder(label_batch) #sself.eeg_encoder(eeg_batch)
         #print("CALCULATING TEXT FEATURES")
-        text_features = self.text_encoder(y)
+        text_features = self.text_encoder(string_batch)
         #print("PROJECTING EEG FEATURES")
         eeg_embeddings = self.eeg_projection(eeg_features)
         #print("PROJECTING TEXT FEATURES")
         text_embeddings = self.text_projection(text_features)
 
-        return eeg_embeddings, text_embeddings, y
+        return eeg_embeddings, text_embeddings, label_batch
 
     def training_step(self, batch, batch_idx):
         eeg_embeddings, text_embeddings, _ = self.forward(batch)
@@ -216,9 +214,9 @@ class EEGClipModule(pl.LightningModule):
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max = self.trainer.max_epochs - 1)
         return [optimizer], [scheduler]
 
-    """
+
     def validation_step(self, batch, batch_idx):
-        eeg_embeddings, text_embeddings, y = self.forward(batch)
+        eeg_embeddings, text_embeddings, label_batch = self.forward(batch)
 
         logits = (text_embeddings @ eeg_embeddings.T) / self.temperature
         eeg_similarity = eeg_embeddings @ eeg_embeddings.T
@@ -232,11 +230,6 @@ class EEGClipModule(pl.LightningModule):
         loss = loss.mean()
 
         self.log('val_loss', loss, prog_bar=True)
-
-        input_batch = y.cpu().numpy()
-        label_batch = [self.recordings_df[self.recordings_df.SUBJECT == input].iloc[0]["LABEL"] for input in input_batch]
-        label_batch = [1 if label == "normal" else 0 for label in label_batch]
-        label_batch = torch.IntTensor(label_batch)
 
         return eeg_embeddings, label_batch
 
@@ -252,7 +245,7 @@ class EEGClipModule(pl.LightningModule):
 
         features = features.reshape(-1, features.shape[-1]).cpu()
         targets = targets.reshape(-1).cpu()
-
+        """
         features2d = TSNE(n_components=2).fit_transform(features)
         plt.scatter([a[0] for a in features2d],
             [a[1] for a in features2d],
@@ -265,7 +258,7 @@ class EEGClipModule(pl.LightningModule):
             "2d projection of eeg embeddings": wandb.Image("results/clip_graphs/tsne_map.png") 
         })
 
-        
+        """
         
         features_train, features_test, targets_train, targets_test = train_test_split(features, targets, shuffle=True)
         print("balance in train set : ", torch.sum(targets_train)/targets_train.shape[0])
@@ -286,7 +279,7 @@ class EEGClipModule(pl.LightningModule):
 
         return None
 
-    """
+
 
 
 

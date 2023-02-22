@@ -22,7 +22,7 @@ import timm
 from transformers import DistilBertModel, DistilBertConfig, DistilBertTokenizer
 
 # %%
-tuh_data = pd.read_csv('../data/TUH_Abnormal_EEG_rep.csv') #open the original dataset
+tuh_data = pd.read_csv('/home/jovyan/EEGClip/data/TUH_Abnormal_EEG_rep.csv') #open the original dataset
 tuh_data = tuh_data.drop([0]).dropna(subset=['DESCRIPTION OF THE RECORD']) #drop first line
 tuh_data = tuh_data.rename(columns={"DESCRIPTION OF THE RECORD": "DESC"})
 tuh_data['CAT'] = tuh_data.LABEL.astype('category').cat.codes
@@ -220,7 +220,7 @@ class CLIPModel(nn.Module):
         texts_loss = cross_entropy(logits, targets, reduction='none')
         categories_loss = cross_entropy(logits.T, targets.T, reduction='none')
         loss =  (categories_loss + texts_loss) / 2.0 # shape: (batch_size)
-        return loss.mean()
+        return loss.mean(), category_features, text_features
 
 
 def cross_entropy(preds, targets, reduction='none'):
@@ -251,7 +251,7 @@ def train_epoch(model, train_loader, optimizer, lr_scheduler, step):
     tqdm_object = tqdm(train_loader, total=len(train_loader))
     for batch in tqdm_object:
         batch = {k: v.to(CFG.device) for k, v in batch.items()}
-        loss = model(batch)
+        loss, _, _ = model(batch)
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
@@ -269,9 +269,13 @@ def valid_epoch(model, valid_loader):
     loss_meter = AvgMeter()
 
     tqdm_object = tqdm(valid_loader, total=len(valid_loader))
+
+    category_features, text_features = [], []
     for batch in tqdm_object:
         batch = {k: v.to(CFG.device) for k, v in batch.items()}
-        loss = model(batch)
+        loss, category_features_batch, text_features_batch = model(batch)
+        print("category features : ", category_features)
+        print("text features : ", text_features)
 
         count = batch["category"].size(0)
         loss_meter.update(loss.item(), count)

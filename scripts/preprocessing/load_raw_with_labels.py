@@ -37,13 +37,14 @@ for edf_in_path in all_edf_paths:
     # look for a text file in the same directory
     txt_path = glob.glob(edf_dir + '/*.txt')
     # if there is a text file, copy it to the output directory
+
     if len(txt_path) > 0:
         txt_path = txt_path[0]
         print(txt_path)
-
-        #txt_out_path = txt_path.replace(tueg_path, out_path)
-        #os.makedirs(os.path.dirname(txt_out_path), exist_ok=True)
-        #os.system('cp ' + txt_path + ' ' + txt_out_path)
+        txt_out_path = txt_path.replace(tueg_path, out_path)
+        print(txt_out_path)
+        os.makedirs(os.path.dirname(txt_out_path), exist_ok=True)
+        os.system('cp ' + txt_path + ' ' + txt_out_path)
 
      
 
