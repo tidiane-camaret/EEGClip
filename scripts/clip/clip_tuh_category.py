@@ -22,7 +22,7 @@ import timm
 from transformers import DistilBertModel, DistilBertConfig, DistilBertTokenizer
 
 # %%
-tuh_data = pd.read_csv('/home/jovyan/EEGClip/data/TUH_Abnormal_EEG_rep.csv') #open the original dataset
+tuh_data = pd.read_csv('/home/tidiane/dev/neuro_ai_lab/EEGClip/TUH_Abnormal_EEG_rep.csv')#/home/jovyan/EEGClip/data/TUH_Abnormal_EEG_rep.csv') #open the original dataset
 tuh_data = tuh_data.drop([0]).dropna(subset=['DESCRIPTION OF THE RECORD']) #drop first line
 tuh_data = tuh_data.rename(columns={"DESCRIPTION OF THE RECORD": "DESC"})
 tuh_data['CAT'] = tuh_data.LABEL.astype('category').cat.codes
@@ -270,17 +270,28 @@ def valid_epoch(model, valid_loader):
 
     tqdm_object = tqdm(valid_loader, total=len(valid_loader))
 
-    category_features, text_features = [], []
+    category_features, text_features, label = [], [], []
     for batch in tqdm_object:
         batch = {k: v.to(CFG.device) for k, v in batch.items()}
         loss, category_features_batch, text_features_batch = model(batch)
         print("category features : ", category_features)
         print("text features : ", text_features)
 
+        category_features.append(category_features_batch)
+        text_features.append(text_features_batch)
+        label.append(batch["category"])
+
+        category_features = torch.cat(category_features, dim=0)
+        text_features = torch.cat(text_features, dim=0)
+        label = torch.cat(label, dim=0)
+
+
         count = batch["category"].size(0)
         loss_meter.update(loss.item(), count)
 
         tqdm_object.set_postfix(valid_loss=loss_meter.avg)
+
+    
     return loss_meter
 
 # %%
