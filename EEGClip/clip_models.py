@@ -36,7 +36,7 @@ class CFG:
     text_encoder_model = "distilbert-base-uncased"
     text_embedding_dim = 768
     text_tokenizer = "distilbert-base-uncased"
-    max_length = 900
+    max_length = 200
 
     pretrained_text_model = False
     trainable_text_model = True
@@ -52,7 +52,7 @@ class CFG:
 
 
 class TextEncoder(nn.Module):
-    def __init__(self, recordings_df, model_name=CFG.text_encoder_model, pretrained=CFG.pretrained_text_model , trainable=CFG.trainable_text_model ):
+    def __init__(self, model_name=CFG.text_encoder_model, pretrained=CFG.pretrained_text_model , trainable=CFG.trainable_text_model ):
         super().__init__()
         if pretrained:
             self.model = DistilBertModel.from_pretrained(model_name)
@@ -67,9 +67,8 @@ class TextEncoder(nn.Module):
 
         self.tokenizer = DistilBertTokenizer.from_pretrained(CFG.text_tokenizer)
 
-        self.trimming = lambda sentence : sentence[sentence.find('DESCRIPTION OF THE RECORD:'):sentence.find('HR:')]
-
-        self.recordings_df = recordings_df
+        self.trimming = lambda sentence : sentence[sentence.find('IMPRESSION:'):]#sentence.find('\nCLINICAL CORRELATION:')]
+        
 
     def forward(self, input_batch): #input_ids, attention_mask):
 
@@ -78,7 +77,8 @@ class TextEncoder(nn.Module):
         #print("nb of sentences : ", len(text_batch))
 
         text_batch = list(input_batch)
-        #text_batch = [self.trimming(sentence) for sentence in text_batch]
+        text_batch = [self.trimming(sentence) for sentence in text_batch]
+        #print(text_batch)
 
         tokenized_text = self.tokenizer(
             text_batch, padding=True, truncation=True, max_length=CFG.max_length
@@ -154,21 +154,20 @@ class EEGClipModule(pl.LightningModule):
         self,
         eeg_classifier_model, 
         lr,
-        recordings_df,
         temperature=CFG.temperature,
         eeg_embedding_dim=CFG.eeg_embedding_dim,
         text_embedding_dim=CFG.text_embedding_dim,
     ):
         super().__init__()
         self.eeg_encoder = EEGEncoder(eeg_classifier_model)
-        self.text_encoder = TextEncoder(recordings_df)
+        self.text_encoder = TextEncoder()
         self.category_encoder = CategoryEncoder()
         self.eeg_projection = ProjectionHead(embedding_dim=eeg_embedding_dim)
         self.text_projection = ProjectionHead(embedding_dim=text_embedding_dim)
         self.temperature = temperature
         self.eeg_classifier_model = eeg_classifier_model
         self.lr = lr
-        self.recordings_df = recordings_df
+
 
 
     def forward(self, batch):
@@ -194,7 +193,7 @@ class EEGClipModule(pl.LightningModule):
 
     def training_step(self, batch, batch_idx):
         eeg_embeddings, text_embeddings, _ = self.forward(batch)
-        #print("CALCULATING LOSS")
+        #+("CALCULATING LOSS")
 
         logits = (text_embeddings @ eeg_embeddings.T) / self.temperature
         eeg_similarity = eeg_embeddings @ eeg_embeddings.T
@@ -245,20 +244,20 @@ class EEGClipModule(pl.LightningModule):
 
         features = features.reshape(-1, features.shape[-1]).cpu()
         targets = targets.reshape(-1).cpu()
-        """
+
         features2d = TSNE(n_components=2).fit_transform(features)
         plt.scatter([a[0] for a in features2d],
             [a[1] for a in features2d],
             c=targets)
 
-        plt.savefig("results/clip_graphs/tsne_map.png")
+        plt.savefig("/home/jovyan/EEGClip/results/clip_graphs/tsne_map.png")
         #wandb.log({"chart": fig})
         
         self.logger.experiment.log({
-            "2d projection of eeg embeddings": wandb.Image("results/clip_graphs/tsne_map.png") 
+            "2d projection of eeg embeddings": wandb.Image("/home/jovyan/EEGClip/results/clip_graphs/tsne_map.png") 
         })
 
-        """
+
         
         features_train, features_test, targets_train, targets_test = train_test_split(features, targets, shuffle=True)
         print("balance in train set : ", torch.sum(targets_train)/targets_train.shape[0])

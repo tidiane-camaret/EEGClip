@@ -5,7 +5,7 @@ class EEGClassifierModule(pl.LightningModule):
     def __init__(self, eeg_classifier_model, lr):
         super().__init__()
         self.classifier = eeg_classifier_model #torch.nn.Sequential(*list(eeg_classifier_model.children())[:-1])
-        self.loss_fn = torch.nn.NLLLoss()
+        self.loss_fn = torch.nn.CrossEntropyLoss() #NLLLoss()
         self.lr = lr
 
     def forward(self, x):
@@ -13,11 +13,15 @@ class EEGClassifierModule(pl.LightningModule):
 
     def training_step(self, batch, batch_nb):
         x, y, z = batch
+        print("INPUT SHAPE : ", x.shape)
         y_hat = self.classifier(x)
         #print("OUTPUT SHAPE : ", y_hat.shape)
+        
+        y_hat = torch.mean(y_hat, dim=2)
+        
 
         loss = self.loss_fn(y_hat, y.long())
-        self.log('train_loss', loss)
+        self.log('train_loss', loss) 
 
         accuracy = torch.sum(torch.argmax(y_hat, dim=1) == y) / y.shape[0]
         #accuracy = accuracy.cpu().numpy()
@@ -28,8 +32,11 @@ class EEGClassifierModule(pl.LightningModule):
 
     def validation_step(self, batch, batch_nb):
         x, y, z = batch
+        print("INPUT SHAPE : ", x.shape)
         y_hat = self.classifier(x)
-        #print("OUTPUT SHAPE : ", y_hat.shape)
+        #print("OUTPUT SHAPE : ", y_hat.shape) 
+        
+        y_hat = torch.mean(y_hat, dim=2) #
         loss = self.loss_fn(y_hat, y.long())
         self.log('validation_loss', loss)
 

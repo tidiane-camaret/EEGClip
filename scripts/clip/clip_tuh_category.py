@@ -15,6 +15,12 @@ import itertools
 from tqdm.autonotebook import tqdm
 import matplotlib.pyplot as plt
 
+from sklearn.manifold import TSNE
+
+from sklearn.model_selection import train_test_split
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import balanced_accuracy_score
 import torch
 from torch import nn
 import torch.nn.functional as F
@@ -22,7 +28,7 @@ import timm
 from transformers import DistilBertModel, DistilBertConfig, DistilBertTokenizer
 
 # %%
-tuh_data = pd.read_csv('/home/tidiane/dev/neuro_ai_lab/EEGClip/TUH_Abnormal_EEG_rep.csv')#/home/jovyan/EEGClip/data/TUH_Abnormal_EEG_rep.csv') #open the original dataset
+tuh_data = pd.read_csv('/home/jovyan/EEGClip/data/TUH_Abnormal_EEG_rep.csv') #open the original dataset
 tuh_data = tuh_data.drop([0]).dropna(subset=['DESCRIPTION OF THE RECORD']) #drop first line
 tuh_data = tuh_data.rename(columns={"DESCRIPTION OF THE RECORD": "DESC"})
 tuh_data['CAT'] = tuh_data.LABEL.astype('category').cat.codes
@@ -53,7 +59,7 @@ class CFG:
     text_tokenizer = "distilbert-base-uncased"
     max_length = 200
 
-    pretrained = True # for both image encoder and text encoder
+    pretrained = False # for both image encoder and text encoder
     trainable = True # for both image encoder and text encoder
     temperature = 1.0
 
@@ -270,28 +276,47 @@ def valid_epoch(model, valid_loader):
 
     tqdm_object = tqdm(valid_loader, total=len(valid_loader))
 
-    category_features, text_features, label = [], [], []
+    category_features, text_features, labels = [], [], []
     for batch in tqdm_object:
         batch = {k: v.to(CFG.device) for k, v in batch.items()}
         loss, category_features_batch, text_features_batch = model(batch)
-        print("category features : ", category_features)
-        print("text features : ", text_features)
+
 
         category_features.append(category_features_batch)
         text_features.append(text_features_batch)
-        label.append(batch["category"])
-
-        category_features = torch.cat(category_features, dim=0)
-        text_features = torch.cat(text_features, dim=0)
-        label = torch.cat(label, dim=0)
-
+        labels.append(batch["category"])
 
         count = batch["category"].size(0)
         loss_meter.update(loss.item(), count)
 
         tqdm_object.set_postfix(valid_loss=loss_meter.avg)
 
+    category_features = torch.cat(category_features, dim=0)
+    text_features = torch.cat(text_features, dim=0)
+    labels = torch.cat(labels, dim=0)
+
+    features = text_features.cpu()
+    targets = labels.cpu()
+     
+    features2d = TSNE(n_components=2).fit_transform(features)
+    plt.scatter([a[0] for a in features2d],
+        [a[1] for a in features2d],
+        c=targets)
+
+    plt.savefig("/home/jovyan/EEGClip/results/clip_graphs/category_tsne_map.png")
+
+
+
     
+    features_train, features_test, targets_train, targets_test = train_test_split(features, targets, shuffle=True)
+    print("balance in train set : ", torch.sum(targets_train)/targets_train.shape[0])
+    print("balance in test set : ", torch.sum(targets_test)/targets_test.shape[0])
+    
+    neigh_classifier = KNeighborsClassifier(n_neighbors=min(targets.shape[0],5))
+    neigh_classifier.fit(features_train, targets_train)
+    pred_labels_knn = neigh_classifier.predict(features_test)
+    knn_accuracy = balanced_accuracy_score(targets_test.tolist(), pred_labels_knn)
+    print(knn_accuracy)
     return loss_meter
 
 # %%

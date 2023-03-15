@@ -26,7 +26,7 @@ N_SAMPLES = 50
 
 tuh = TUHAbnormal(
     path=TUHAbnormal_PATH,
-    recording_ids=list(range(N_SAMPLES)),
+    #recording_ids=list(range(N_SAMPLES)),
     target_name=('pathological'),#'report'),
     preload=False,
     add_physician_reports=True,
@@ -98,7 +98,7 @@ weight_decay = 0
 batch_size = 64
 n_epochs = 50
 
-"""
+
 if cuda:
     eeg_classifier_model.cuda()
 
@@ -139,3 +139,4 @@ trainer = Trainer(
 )
 
 trainer.fit(EEGClassifierModule(eeg_classifier_model=eeg_classifier_model, lr = lr), train_loader, valid_loader)
+"""
