@@ -24,7 +24,7 @@ n_max_minutes = 3
 sfreq = 100
 n_minutes = 2
 input_window_samples = 1200
-n_epochs = 50
+n_epochs = 200
 batch_size = 64
 # This was from High-Gamma dataset optimization:
 #lr = 1 * 0.01
@@ -54,24 +54,17 @@ import torch
 from braindecode.models import Deep4Net
 
 
-n_classes = 2
+n_classes = 128
 # Extract number of chans from dataset
 n_chans = 21
 
-eeg_classifier_model = Deep4Net(
-    in_chans=n_chans,
-    n_classes=n_classes, 
-    input_window_samples=None,
-    final_conv_length=2,
-    stride_before_pool=True,
-)
-
 # Send model to GPU
+"""
 if cuda:
     eeg_classifier_model.cuda()
 from braindecode.models.util import to_dense_prediction_model, get_output_shape
 to_dense_prediction_model(eeg_classifier_model)
-
+"""
 
 # ## Data Loading
 
@@ -97,7 +90,7 @@ import numpy as np
 from copy import deepcopy
 
 
-whole_train_set = dataset.split('train')['True']
+whole_train_set = dataset #.split('train')['True']
 
 ar_ch_names = sorted([
     'EEG A1-REF', 'EEG A2-REF',
@@ -144,7 +137,7 @@ import pandas as pd
 
 from braindecode.models.util import to_dense_prediction_model, get_output_shape
 
-n_preds_per_input = get_output_shape(eeg_classifier_model, n_chans, input_window_samples)[2]
+n_preds_per_input = 519 #get_output_shape(eeg_classifier_model, n_chans, input_window_samples)[2]
 
 from braindecode.datautil.windowers import create_fixed_length_windows
 
@@ -172,7 +165,7 @@ window_valid_set = create_fixed_length_windows(
 
 # ## Initialize Data Loaders
 
-num_workers = 0
+num_workers = 8
 
 train_loader = th.utils.data.DataLoader(
     window_train_set,
@@ -194,10 +187,10 @@ valid_loader = th.utils.data.DataLoader(
     drop_last=False)
 
 # ## Initialize Optimizer and Scheduler
-
+'''
 optim = th.optim.AdamW(eeg_classifier_model.parameters(), lr=lr, weight_decay=weight_decay)
 scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optim, T_max=n_epochs,)
-
+'''
 
 from pytorch_lightning.callbacks.progress import TQDMProgressBar
 from pytorch_lightning.loggers import TensorBoardLogger, WandbLogger
@@ -206,29 +199,6 @@ from pytorch_lightning import Trainer
 from EEGClip.classifier_models import EEGClassifierModule
 # ## Run Training
 
-
-
-n_classes = 128
-# Extract number of chans and time steps from dataset
-n_chans = window_train_set[0][0].shape[0]
-input_window_samples = window_train_set[0][0].shape[1]
-
-eeg_classifier_model = deep4.Deep4Net(
-    n_chans,
-    n_classes,
-    input_window_samples=input_window_samples,
-    final_conv_length='auto',
-    stride_before_pool=True
-)
-
-
-# These values we found good for shallow network:
-#lr = 0.0625 * 0.01
-#weight_decay = 0
-
-# For deep4 they should be:
-lr = 1 * 0.001
-weight_decay = 0.5 * 0.001
 
 wandb_logger = WandbLogger(project="EEGClip",save_dir = "results/wandb")
 #logger = TensorBoardLogger("results/tb_logs", name="EEG_Clip")
@@ -255,8 +225,9 @@ trainer.validate(
 """
 trainer.fit(
                 EEGClipModule(
-                         eeg_classifier_model=eeg_classifier_model,
+                         n_chans=n_chans,
                          lr = lr, 
+                         weight_decay=weight_decay
                          ),
                 train_loader, 
                 valid_loader

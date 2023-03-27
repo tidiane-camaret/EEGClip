@@ -72,7 +72,7 @@ to_dense_prediction_model(model)
 # %%
 
 from braindecode.datasets.tuh import TUHAbnormal
-data_path = '/home/jovyan/mne_data/TUH/tuh_eeg_abnormal/v2.0.0/edf/'
+data_path = '/home/jovyan/mne_data/TUH_PRE/tuh_eeg_abnormal/v2.0.0/edf/'
 dataset = TUHAbnormal(
     path=data_path,
     recording_ids=None,  # loads the n chronologically first recordings
@@ -115,7 +115,7 @@ preprocessors = [
     Preprocessor(fn='resample', sfreq=sfreq),
 ]
 # Preprocess the data
-preprocess(whole_train_set, preprocessors)
+#preprocess(whole_train_set, preprocessors)
 
 # %% [markdown]
 # ## Data Splitting
@@ -217,7 +217,7 @@ epochs_df = pd.DataFrame()
 for i_epoch in trange(n_epochs):
     if i_epoch > 0:
         for X,y,i in tqdm(train_loader):
-            print(X.shape)
+            #print(X.shape)
             X = X.cuda()
             y = y.type(th.LongTensor).cuda()
             out = model(X)

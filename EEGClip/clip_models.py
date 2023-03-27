@@ -15,6 +15,7 @@ from sklearn.metrics import balanced_accuracy_score
 import torch
 from torch import nn
 import torch.nn.functional as F
+from braindecode.models import Deep4Net
 from transformers import DistilBertModel, DistilBertConfig, DistilBertTokenizer
 import pytorch_lightning as pl
 
@@ -32,13 +33,13 @@ class CFG:
 
     eeg_embedding_dim = 256 #128 #768 #2048
     nb_categories = 2
-    category_embedding_dim = 256 #768
+    category_embedding_dim = 128 #768
     text_encoder_model = "distilbert-base-uncased"
     text_embedding_dim = 768
     text_tokenizer = "distilbert-base-uncased"
     max_length = 200
 
-    pretrained_text_model = False
+    pretrained_text_model = True
     trainable_text_model = True
     trainable_eeg_model = True
 
@@ -106,10 +107,16 @@ class CategoryEncoder(nn.Module):
         return output
 
 class EEGEncoder(nn.Module):
-    def __init__(self, eeg_classifier_model, trainable=CFG.trainable_eeg_model):
+    def __init__(self, n_chans = 21, trainable=CFG.trainable_eeg_model):
         super().__init__()
         # TODO: add pretrained models
-        self.model = eeg_classifier_model
+        self.model = Deep4Net(
+            in_chans=n_chans,
+            n_classes=CFG.eeg_embedding_dim, 
+            input_window_samples=None,
+            final_conv_length=2,
+            stride_before_pool=True,
+        )
         for p in self.model.parameters():
             p.requires_grad = trainable
     
@@ -152,21 +159,28 @@ def cross_entropy(preds, targets, reduction='none'):
 class EEGClipModule(pl.LightningModule):
     def __init__(
         self,
-        eeg_classifier_model, 
         lr,
+        weight_decay,
+        n_chans=21,
         temperature=CFG.temperature,
         eeg_embedding_dim=CFG.eeg_embedding_dim,
         text_embedding_dim=CFG.text_embedding_dim,
     ):
         super().__init__()
-        self.eeg_encoder = EEGEncoder(eeg_classifier_model)
+        self.eeg_encoder = EEGEncoder(n_chans)
         self.text_encoder = TextEncoder()
         self.category_encoder = CategoryEncoder()
         self.eeg_projection = ProjectionHead(embedding_dim=eeg_embedding_dim)
         self.text_projection = ProjectionHead(embedding_dim=text_embedding_dim)
         self.temperature = temperature
-        self.eeg_classifier_model = eeg_classifier_model
         self.lr = lr
+        self.weight_decay = weight_decay
+
+        self.train_features = []
+        self.train_labels = []
+
+        self.valid_features = []
+        self.valid_labels = []
 
 
 
@@ -176,135 +190,163 @@ class EEGClipModule(pl.LightningModule):
 
         string_batch = [string[string.find('IMPRESSION:'):string.find('CLINICAL CORRELATION:')] for string in string_batch]
         #print(string_batch)
-        label_batch = [1 if "abnormal" in string.lower() else 0 for string in string_batch]
-        label_batch = torch.IntTensor(label_batch).to(CFG.device)
+        labels = [1 if "abnormal" in string.lower() else 0 for string in string_batch]
+        labels = torch.IntTensor(labels).to(CFG.device)
 
 
         #print("CALCULATING EEG FEATURES")
-        eeg_features = self.category_encoder(label_batch) #sself.eeg_encoder(eeg_batch)
+        eeg_features = self.eeg_encoder(eeg_batch)
+        #print(eeg_features.shape)
+        eeg_features = torch.mean(eeg_features, dim=2)
         #print("CALCULATING TEXT FEATURES")
         text_features = self.text_encoder(string_batch)
         #print("PROJECTING EEG FEATURES")
-        eeg_embeddings = self.eeg_projection(eeg_features)
+        eeg_features_proj = self.eeg_projection(eeg_features)
         #print("PROJECTING TEXT FEATURES")
-        text_embeddings = self.text_projection(text_features)
+        text_features_proj = self.text_projection(text_features)
 
-        return eeg_embeddings, text_embeddings, label_batch
+        return eeg_features, eeg_features_proj, text_features, text_features_proj, labels
 
-    def training_step(self, batch, batch_idx):
-        eeg_embeddings, text_embeddings, _ = self.forward(batch)
-        #+("CALCULATING LOSS")
 
-        logits = (text_embeddings @ eeg_embeddings.T) / self.temperature
-        eeg_similarity = eeg_embeddings @ eeg_embeddings.T
-        texts_similarity = text_embeddings @ text_embeddings.T
+    def loss_calculation(self, eeg_features_proj, text_features_proj):
+        
+
+        logits = (text_features_proj @ eeg_features_proj.T) / self.temperature
+        
+
+        # shape: (batch_size * batch_size)
+        eeg_similarity = eeg_features_proj @ eeg_features_proj.T
+        # shape: (batch_size * batch_size)
+        texts_similarity = text_features_proj @ text_features_proj.T
+        # shape: (batch_size * batch_size)
         targets = F.softmax(
             (eeg_similarity + texts_similarity) / 2 * self.temperature, dim=-1
         )
+        targets = torch.eye(logits.shape[0]).to(CFG.device)
+        # shape: (batch_size * batch_size)
         texts_loss = cross_entropy(logits, targets, reduction='none')
+        # shape: (batch_size)
         eeg_loss = cross_entropy(logits.T, targets.T, reduction='none')
-        loss =  (eeg_loss + texts_loss) / 2.0 # shape: (batch_size)
+        # shape: (batch_size) 
+        loss =  (eeg_loss + texts_loss) / 2.0 
+        # shape: (batch_size)
         loss = loss.mean()
-        self.log('train_loss', loss, prog_bar=True)
+
+        #log the logit matrix
+        logits_image = wandb.Image(logits, caption="logit matrix")
+        targets_image = wandb.Image(logits, caption="targets matrix")
+
+        wandb.log({"logits image": logits_image,
+                   "targets_image": targets_image})
+
+        """
+
+        eeg_embeddings = eeg_features_proj
+        text_embeddings = text_features_proj
+        print(eeg_embeddings.shape, text_embeddings.shape)
+        batch_size = eeg_embeddings.shape[0]
+        
+        # concatenate EEG and text embeddings along the batch dimension
+        embeddings = torch.cat([eeg_embeddings, text_embeddings], dim=0)
+        
+        # calculate cosine similarity matrix
+        similarity_matrix = torch.matmul(embeddings, embeddings.t())
+        
+        # exclude self-similarity and normalize temperature
+        mask = torch.eye(batch_size * 2, dtype=torch.bool)
+        similarity_matrix = similarity_matrix[~mask].view(batch_size * 2, -1)
+        similarity_matrix /= self.temperature
+        
+        # calculate contrastive loss
+        targets = torch.arange(batch_size * 2, dtype=torch.long, device=similarity_matrix.device)
+        print(similarity_matrix.shape, targets.shape)
+        
+        loss = nn.CrossEntropyLoss()(similarity_matrix, targets)
+        loss = loss.mean()
+        """
+
         return loss
 
-    def configure_optimizers(self):
-        optimizer = torch.optim.AdamW(self.parameters(), lr = self.lr)
-        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max = self.trainer.max_epochs - 1)
-        return [optimizer], [scheduler]
+
+    def training_step(self, batch, batch_idx):
+        eeg_features, eeg_features_proj, text_features, text_features_proj, labels = self.forward(batch)
+        
+        self.train_features.append(eeg_features_proj)
+        self.train_labels.append(labels)
+        #+("CALCULATING LOSS")
+
+        loss = self.loss_calculation(eeg_features_proj, text_features_proj)
+
+        self.log('train_loss', loss, prog_bar=True)
+
+        return loss
+
 
 
     def validation_step(self, batch, batch_idx):
-        eeg_embeddings, text_embeddings, label_batch = self.forward(batch)
 
-        logits = (text_embeddings @ eeg_embeddings.T) / self.temperature
-        eeg_similarity = eeg_embeddings @ eeg_embeddings.T
-        texts_similarity = text_embeddings @ text_embeddings.T
-        targets = F.softmax(
-            (eeg_similarity + texts_similarity) / 2 * self.temperature, dim=-1
-        )
-        texts_loss = cross_entropy(logits, targets, reduction='none')
-        eeg_loss = cross_entropy(logits.T, targets.T, reduction='none')
-        loss =  (eeg_loss + texts_loss) / 2.0 # shape: (batch_size)
-        loss = loss.mean()
+        eeg_features, eeg_features_proj, text_features, text_features_proj, labels = self.forward(batch)
+        self.valid_features.append(eeg_features_proj)
+        self.valid_labels.append(labels)
+
+        loss =  self.loss_calculation(eeg_features_proj, text_features_proj)
 
         self.log('val_loss', loss, prog_bar=True)
 
-        return eeg_embeddings, label_batch
+        return loss
 
     
     def validation_epoch_end(self, outputs):
-        # get rid of last batch if it is smaller than batch_size
-        if len(outputs) > 1:
-            outputs = outputs[:-1]
-        features, targets = zip(*outputs)
 
-        features = torch.stack(features)
-        targets = torch.stack(targets)
+        features_valid = self.valid_features
+        targets_valid = self.valid_labels
 
-        features = features.reshape(-1, features.shape[-1]).cpu()
-        targets = targets.reshape(-1).cpu()
-
-        features2d = TSNE(n_components=2).fit_transform(features)
+        features_valid = torch.cat(features_valid).cpu()
+        targets_valid = torch.cat(targets_valid).cpu()
+        
+        features2d = TSNE(n_components=2).fit_transform(features_valid)
         plt.scatter([a[0] for a in features2d],
             [a[1] for a in features2d],
-            c=targets)
+            c=targets_valid)
 
         plt.savefig("/home/jovyan/EEGClip/results/clip_graphs/tsne_map.png")
-        #wandb.log({"chart": fig})
         
         self.logger.experiment.log({
             "2d projection of eeg embeddings": wandb.Image("/home/jovyan/EEGClip/results/clip_graphs/tsne_map.png") 
         })
 
 
+        if self.train_features :
+            features_train = self.train_features
+            targets_train = self.train_labels
+
+            features_train = torch.cat(features_train).cpu()
+            targets_train = torch.cat(targets_train).cpu()
+
+            print("balance in train set : ", torch.sum(targets_train)/targets_train.shape[0])
+            print("balance in test set : ", torch.sum(targets_valid)/targets_valid.shape[0])
+            
+            neigh_classifier = KNeighborsClassifier(n_neighbors=min(targets_train.shape[0],5))
+            neigh_classifier.fit(features_train, targets_train)
+            pred_labels_knn = neigh_classifier.predict(features_valid)
+            knn_accuracy = balanced_accuracy_score(targets_valid.tolist(), pred_labels_knn)
+            self.log('knn_acc', knn_accuracy, prog_bar=True)
+
+            logreg_classifier = LogisticRegression(random_state=0, max_iter=1000, verbose=0)
+            logreg_classifier.fit(features_train, targets_train)
+            pred_labels_logreg = logreg_classifier.predict(features_valid)
+            logreg_accuracy = balanced_accuracy_score(targets_valid.tolist(), pred_labels_logreg)
+            self.log('logreg_acc', logreg_accuracy, prog_bar=True)
+
+        self.train_features.clear()
+        self.train_labels.clear()
+
+        self.valid_features.clear()
+        self.valid_labels.clear()
         
-        features_train, features_test, targets_train, targets_test = train_test_split(features, targets, shuffle=True)
-        print("balance in train set : ", torch.sum(targets_train)/targets_train.shape[0])
-        print("balance in test set : ", torch.sum(targets_test)/targets_test.shape[0])
-        
-        neigh_classifier = KNeighborsClassifier(n_neighbors=min(targets.shape[0],5))
-        neigh_classifier.fit(features_train, targets_train)
-        pred_labels_knn = neigh_classifier.predict(features_test)
-        knn_accuracy = balanced_accuracy_score(targets_test.tolist(), pred_labels_knn)
-        self.log('knn_acc', knn_accuracy, prog_bar=True)
-
-        logreg_classifier = LogisticRegression(random_state=0, max_iter=1000, verbose=0)
-        logreg_classifier.fit(features_train, targets_train)
-        pred_labels_logreg = logreg_classifier.predict(features_test)
-        logreg_accuracy = balanced_accuracy_score(targets_test.tolist(), pred_labels_logreg)
-        self.log('logreg__acc', logreg_accuracy, prog_bar=True)
-
-
         return None
 
-
-
-
-
-
-
-    """
-    def training_epoch_end(self, outputs):
-        # print losses
-        losses = [i['loss'].item() for i in outputs]
-        loss_avg = sum(losses)/len(losses)
-        print(f'train loss = {loss_avg:.2f}')
-
-        # update feature bank at the end of each training epoch
-        self.eeg_encoder.eval()
-        self.feature_bank = []
-        self.targets_bank = []
-        with torch.no_grad():
-            for batch in self.val_dataloader():
-                eeg_embeddings, text_embeddings, y = self.forward(batch)
-                input_batch = input_batch.cpu().numpy()
-                label = [CFG.recordings_df[CFG.recordings_df.SUBJECT == input].iloc[0]["LABEL"] for input in input_batch]
-                self.feature_bank.append(text_embeddings)
-                self.targets_bank.append(label)
-        self.feature_bank = torch.cat(
-            self.feature_bank, dim=0).t().contiguous()
-        self.targets_bank = torch.cat(
-            self.targets_bank, dim=0).t().contiguous()
-        self.eeg_encoder.train()
-    """
+    def configure_optimizers(self):
+        optimizer = torch.optim.AdamW(self.parameters(), lr = self.lr, weight_decay=self.weight_decay)
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max = self.trainer.max_epochs - 1)
+        return [optimizer], [scheduler]

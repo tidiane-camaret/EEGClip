@@ -132,7 +132,7 @@ import pandas as pd
 from braindecode.models.util import to_dense_prediction_model, get_output_shape
 
 n_preds_per_input = get_output_shape(eeg_classifier_model, n_chans, input_window_samples)[2]
-
+print("n_preds_per_input : ", n_preds_per_input)
 from braindecode.datautil.windowers import create_fixed_length_windows
 
 
