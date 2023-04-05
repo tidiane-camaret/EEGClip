@@ -24,7 +24,7 @@ n_max_minutes = 3
 sfreq = 100
 n_minutes = 2
 input_window_samples = 1200
-n_epochs = 200
+n_epochs = 500
 batch_size = 64
 # This was from High-Gamma dataset optimization:
 #lr = 1 * 0.01

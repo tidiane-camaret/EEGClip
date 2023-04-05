@@ -31,16 +31,16 @@ class CFG:
     patience = 1
     factor = 0.8
 
-    eeg_embedding_dim = 256 #128 #768 #2048
+    eeg_embedding_dim = 768 #256 #128 #768 #2048
     nb_categories = 2
-    category_embedding_dim = 128 #768
+    category_embedding_dim = 768
     text_encoder_model = "distilbert-base-uncased"
     text_embedding_dim = 768
     text_tokenizer = "distilbert-base-uncased"
     max_length = 200
 
-    pretrained_text_model = True
-    trainable_text_model = True
+    pretrained_text_model = False
+    trainable_text_model = False
     trainable_eeg_model = True
 
     temperature = 1.0
@@ -71,18 +71,18 @@ class TextEncoder(nn.Module):
         self.trimming = lambda sentence : sentence[sentence.find('IMPRESSION:'):]#sentence.find('\nCLINICAL CORRELATION:')]
         
 
-    def forward(self, input_batch): #input_ids, attention_mask):
+    def forward(self, string_batch): #input_ids, attention_mask):
 
 
         #input_batch = input_batch.cpu().numpy()
         #print("nb of sentences : ", len(text_batch))
 
-        text_batch = list(input_batch)
-        text_batch = [self.trimming(sentence) for sentence in text_batch]
-        #print(text_batch)
+        string_batch = list(string_batch)
+
+        trimmed_string_batch = [string[string.find('DESCRIPTION OF THE RECORD:'):string.find('IMPRESSION:')] for string in string_batch]
 
         tokenized_text = self.tokenizer(
-            text_batch, padding=True, truncation=True, max_length=CFG.max_length
+            trimmed_string_batch, padding=True, truncation=True #, max_length=CFG.max_length
         )
 
         output = self.model(input_ids=torch.IntTensor(tokenized_text["input_ids"]).to(CFG.device),
@@ -187,23 +187,28 @@ class EEGClipModule(pl.LightningModule):
     def forward(self, batch):
         eeg_batch, string_batch, id_batch = batch
 
-
-        string_batch = [string[string.find('IMPRESSION:'):string.find('CLINICAL CORRELATION:')] for string in string_batch]
-        #print(string_batch)
-        labels = [1 if "abnormal" in string.lower() else 0 for string in string_batch]
-        labels = torch.IntTensor(labels).to(CFG.device)
-
-
         #print("CALCULATING EEG FEATURES")
         eeg_features = self.eeg_encoder(eeg_batch)
         #print(eeg_features.shape)
         eeg_features = torch.mean(eeg_features, dim=2)
+
+        #eeg_features = self.category_encoder(labels)
         #print("CALCULATING TEXT FEATURES")
+        #text_features = self.category_encoder(labels)
+        
         text_features = self.text_encoder(string_batch)
+
         #print("PROJECTING EEG FEATURES")
         eeg_features_proj = self.eeg_projection(eeg_features)
         #print("PROJECTING TEXT FEATURES")
         text_features_proj = self.text_projection(text_features)
+
+        # Extract the labels from the Impression field
+
+        trimmed_string_batch = [string[string.find('IMPRESSION:'):string.find('CLINICAL CORRELATION:')] for string in string_batch]
+        #print(string_batch)
+        labels = [1 if "abnormal" in string.lower() else 0 for string in trimmed_string_batch]
+        labels = torch.IntTensor(labels).to(CFG.device)
 
         return eeg_features, eeg_features_proj, text_features, text_features_proj, labels
 
@@ -213,8 +218,9 @@ class EEGClipModule(pl.LightningModule):
 
         logits = (text_features_proj @ eeg_features_proj.T) / self.temperature
         
-
         # shape: (batch_size * batch_size)
+        
+        """
         eeg_similarity = eeg_features_proj @ eeg_features_proj.T
         # shape: (batch_size * batch_size)
         texts_similarity = text_features_proj @ text_features_proj.T
@@ -222,7 +228,9 @@ class EEGClipModule(pl.LightningModule):
         targets = F.softmax(
             (eeg_similarity + texts_similarity) / 2 * self.temperature, dim=-1
         )
+        """
         targets = torch.eye(logits.shape[0]).to(CFG.device)
+
         # shape: (batch_size * batch_size)
         texts_loss = cross_entropy(logits, targets, reduction='none')
         # shape: (batch_size)
@@ -233,11 +241,11 @@ class EEGClipModule(pl.LightningModule):
         loss = loss.mean()
 
         #log the logit matrix
-        logits_image = wandb.Image(logits, caption="logit matrix")
-        targets_image = wandb.Image(logits, caption="targets matrix")
+        #logits_image = wandb.Image(logits, caption="logit matrix")
+        #targets_image = wandb.Image(targets, caption="targets matrix")
 
-        wandb.log({"logits image": logits_image,
-                   "targets_image": targets_image})
+        #wandb.log({"logits image": logits_image,
+        #           "targets image": targets_image})
 
         """
 

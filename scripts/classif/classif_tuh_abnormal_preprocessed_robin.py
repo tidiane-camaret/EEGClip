@@ -72,10 +72,10 @@ to_dense_prediction_model(model)
 # %%
 
 from braindecode.datasets.tuh import TUHAbnormal
-data_path = '/home/jovyan/mne_data/TUH_PRE/tuh_eeg_abnormal/v2.0.0/edf/'
+data_path = '/home/jovyan/mne_data/TUH/tuh_eeg_abnormal/v2.0.0/edf/'
 dataset = TUHAbnormal(
     path=data_path,
-    recording_ids=None,  # loads the n chronologically first recordings
+    recording_ids=range(n_recordings_to_load),  # loads the n chronologically first recordings
     target_name=target_name,  # age, gender, pathology
     preload=False,
     add_physician_reports=False,
@@ -83,7 +83,7 @@ dataset = TUHAbnormal(
 
 # %%
 from braindecode.datasets import BaseConcatDataset
-dataset = BaseConcatDataset(dataset.datasets[:n_recordings_to_load])
+#dataset = BaseConcatDataset(dataset.datasets[:n_recordings_to_load])
 
 # %% [markdown]
 # ## Data Preprocessing
@@ -115,7 +115,7 @@ preprocessors = [
     Preprocessor(fn='resample', sfreq=sfreq),
 ]
 # Preprocess the data
-#preprocess(whole_train_set, preprocessors)
+preprocess(whole_train_set, preprocessors)
 
 # %% [markdown]
 # ## Data Splitting
