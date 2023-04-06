@@ -64,10 +64,10 @@ to_dense_prediction_model(eeg_classifier_model)
 
 
 from braindecode.datasets.tuh import TUHAbnormal
-data_path = '/home/jovyan/mne_data/TUH/tuh_eeg_abnormal/v2.0.0/edf/'
+data_path = '/home/jovyan/mne_data/TUH_PRE/tuh_eeg_abnormal/v2.0.0/edf/'
 dataset = TUHAbnormal(
     path=data_path,
-    recording_ids=range(n_recordings_to_load),  # loads the n chronologically first recordings
+    recording_ids=None,#range(n_recordings_to_load),  # loads the n chronologically first recordings
     target_name=target_name,  # age, gender, pathology
     preload=False,
     add_physician_reports=False,
@@ -104,7 +104,9 @@ preprocessors = [
     Preprocessor(fn='resample', sfreq=sfreq),
 ]
 # Preprocess the data
-preprocess(whole_train_set, preprocessors)
+# preprocess(whole_train_set, preprocessors)
+# or get the preprocessed data in TUH_PRE, but it needs to be multiplied : 
+# window_train_set.transform = lambda x: x*1e6
 
 # ## Data Splitting
 
@@ -156,6 +158,8 @@ window_valid_set = create_fixed_length_windows(
     drop_last_window=False,
 )
 
+window_train_set.transform = lambda x: x*1e6
+window_valid_set.transform = lambda x: x*1e6
 
 # ## Initialize Data Loaders
 

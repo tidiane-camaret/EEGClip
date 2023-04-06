@@ -16,10 +16,13 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 from braindecode.models import Deep4Net
-from transformers import DistilBertModel, DistilBertConfig, DistilBertTokenizer
-import pytorch_lightning as pl
 
+from transformers import DistilBertModel, DistilBertConfig, DistilBertTokenizer
+from transformers import AutoTokenizer, AutoModel, AutoModelForCausalLM
+
+import pytorch_lightning as pl
 import wandb 
+
 
 class CFG:
 
@@ -31,15 +34,15 @@ class CFG:
     patience = 1
     factor = 0.8
 
-    eeg_embedding_dim = 768 #256 #128 #768 #2048
+    eeg_embedding_dim = 768 #768 #256 #128 #768 #2048
     nb_categories = 2
     category_embedding_dim = 768
-    text_encoder_model = "distilbert-base-uncased"
-    text_embedding_dim = 768
-    text_tokenizer = "distilbert-base-uncased"
-    max_length = 200
+    text_encoder_model = "distilbert-base-uncased" #"AshtonIsNotHere/GatorTron-OG" #"bert-base-uncased" #"microsoft/biogpt" #"microsoft/BioGPT-Large-PubMedQA" #"AshtonIsNotHere/GatorTron-OG" # "" " "distilbert-base-uncased" #"emilyalsentzer/Bio_ClinicalBERT"
+    text_embedding_dim = 768 #1024 #
+    text_tokenizer = text_encoder_model #"distilbert-base-uncased"
+    max_length = 512
 
-    pretrained_text_model = False
+    pretrained_text_model = True
     trainable_text_model = False
     trainable_eeg_model = True
 
@@ -56,9 +59,9 @@ class TextEncoder(nn.Module):
     def __init__(self, model_name=CFG.text_encoder_model, pretrained=CFG.pretrained_text_model , trainable=CFG.trainable_text_model ):
         super().__init__()
         if pretrained:
-            self.model = DistilBertModel.from_pretrained(model_name)
+            self.model = AutoModel.from_pretrained(model_name)
         else:
-            self.model = DistilBertModel(config=DistilBertConfig())
+            self.model = AutoConfig.from_pretrained(model_name)
             
         for p in self.model.parameters():
             p.requires_grad = trainable
@@ -66,10 +69,7 @@ class TextEncoder(nn.Module):
         # we are using the CLS token hidden representation as the sentence's embedding
         self.target_token_idx = 0
 
-        self.tokenizer = DistilBertTokenizer.from_pretrained(CFG.text_tokenizer)
-
-        self.trimming = lambda sentence : sentence[sentence.find('IMPRESSION:'):]#sentence.find('\nCLINICAL CORRELATION:')]
-        
+        self.tokenizer = AutoTokenizer.from_pretrained(CFG.text_tokenizer)
 
     def forward(self, string_batch): #input_ids, attention_mask):
 
@@ -79,10 +79,10 @@ class TextEncoder(nn.Module):
 
         string_batch = list(string_batch)
 
-        trimmed_string_batch = [string[string.find('DESCRIPTION OF THE RECORD:'):string.find('IMPRESSION:')] for string in string_batch]
+        trimmed_string_batch = string_batch # most descs have token lenght <512 [string[string.find('DESCRIPTION OF THE RECORD:'):string.find('IMPRESSION:')] for string in string_batch]
 
         tokenized_text = self.tokenizer(
-            trimmed_string_batch, padding=True, truncation=True #, max_length=CFG.max_length
+            trimmed_string_batch, padding=True, truncation=True, max_length=CFG.max_length
         )
 
         output = self.model(input_ids=torch.IntTensor(tokenized_text["input_ids"]).to(CFG.device),
@@ -203,11 +203,11 @@ class EEGClipModule(pl.LightningModule):
         #print("PROJECTING TEXT FEATURES")
         text_features_proj = self.text_projection(text_features)
 
-        # Extract the labels from the Impression field
+        # Extract the labels from the description string
 
-        trimmed_string_batch = [string[string.find('IMPRESSION:'):string.find('CLINICAL CORRELATION:')] for string in string_batch]
+        trimmed_string_batch = string_batch #[string[string.find('IMPRESSION:'):string.find('CLINICAL CORRELATION:')] for string in string_batch]
         #print(string_batch)
-        labels = [1 if "abnormal" in string.lower() else 0 for string in trimmed_string_batch]
+        labels = [1 if "keppra" in string.lower() else 0 for string in trimmed_string_batch]
         labels = torch.IntTensor(labels).to(CFG.device)
 
         return eeg_features, eeg_features_proj, text_features, text_features_proj, labels
