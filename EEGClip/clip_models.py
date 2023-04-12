@@ -34,11 +34,11 @@ class CFG:
     patience = 1
     factor = 0.8
 
-    eeg_embedding_dim = 768 #768 #256 #128 #768 #2048
+    eeg_embedding_dim =  256#768 #256 #128 #768 #2048
     nb_categories = 2
     category_embedding_dim = 768
-    text_encoder_model = "distilbert-base-uncased" #"AshtonIsNotHere/GatorTron-OG" #"bert-base-uncased" #"microsoft/biogpt" #"microsoft/BioGPT-Large-PubMedQA" #"AshtonIsNotHere/GatorTron-OG" # "" " "distilbert-base-uncased" #"emilyalsentzer/Bio_ClinicalBERT"
-    text_embedding_dim = 768 #1024 #
+    text_encoder_model = "AshtonIsNotHere/GatorTron-OG"#"distilbert-base-uncased" #"AshtonIsNotHere/GatorTron-OG" #"bert-base-uncased" #"microsoft/biogpt" #"microsoft/BioGPT-Large-PubMedQA" #"AshtonIsNotHere/GatorTron-OG" # "" " "distilbert-base-uncased" #"emilyalsentzer/Bio_ClinicalBERT"
+    text_embedding_dim = 1024 #
     text_tokenizer = text_encoder_model #"distilbert-base-uncased"
     max_length = 512
 
@@ -51,7 +51,7 @@ class CFG:
 
     # for projection head; used for both eeg and text encoders
     num_projection_layers = 1
-    projection_dim = 256 
+    projection_dim = 64 
     dropout = 0.1
 
 
@@ -205,9 +205,9 @@ class EEGClipModule(pl.LightningModule):
 
         # Extract the labels from the description string
 
-        trimmed_string_batch = string_batch #[string[string.find('IMPRESSION:'):string.find('CLINICAL CORRELATION:')] for string in string_batch]
+        trimmed_string_batch = [string[string.find('IMPRESSION:'):string.find('CLINICAL CORRELATION:')] for string in string_batch]
         #print(string_batch)
-        labels = [1 if "keppra" in string.lower() else 0 for string in trimmed_string_batch]
+        labels = [1 if "abnormal" in string.lower() else 0 for string in trimmed_string_batch]
         labels = torch.IntTensor(labels).to(CFG.device)
 
         return eeg_features, eeg_features_proj, text_features, text_features_proj, labels
@@ -312,6 +312,7 @@ class EEGClipModule(pl.LightningModule):
         features_valid = torch.cat(features_valid).cpu()
         targets_valid = torch.cat(targets_valid).cpu()
         
+        """
         features2d = TSNE(n_components=2).fit_transform(features_valid)
         plt.scatter([a[0] for a in features2d],
             [a[1] for a in features2d],
@@ -322,6 +323,7 @@ class EEGClipModule(pl.LightningModule):
         self.logger.experiment.log({
             "2d projection of eeg embeddings": wandb.Image("/home/jovyan/EEGClip/results/clip_graphs/tsne_map.png") 
         })
+        """
 
 
         if self.train_features :

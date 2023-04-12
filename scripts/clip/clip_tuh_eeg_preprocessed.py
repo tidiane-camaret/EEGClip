@@ -70,10 +70,10 @@ to_dense_prediction_model(eeg_classifier_model)
 
 
 from braindecode.datasets.tuh import TUHAbnormal
-data_path = '/home/jovyan/mne_data/TUH/tuh_eeg_abnormal/v2.0.0/edf/'
+data_path = '/home/jovyan/mne_data/TUH_PRE/tuh_eeg_abnormal_clip/v2.0.0/edf/'
 dataset = TUHAbnormal(
     path=data_path,
-    recording_ids=range(n_recordings_to_load),  # loads the n chronologically first recordings
+    recording_ids=None,#range(n_recordings_to_load),  # loads the n chronologically first recordings
     target_name=target_name,  # age, gender, pathology
     preload=False,
     add_physician_reports=True,
@@ -91,7 +91,7 @@ from copy import deepcopy
 
 
 whole_train_set = dataset #.split('train')['True']
-
+"""
 ar_ch_names = sorted([
     'EEG A1-REF', 'EEG A2-REF',
     'EEG FP1-REF', 'EEG FP2-REF', 'EEG F3-REF', 'EEG F4-REF', 'EEG C3-REF',
@@ -111,7 +111,7 @@ preprocessors = [
 ]
 # Preprocess the data
 preprocess(whole_train_set, preprocessors)
-
+"""
 # ## Data Splitting
 
 import numpy as np
@@ -163,6 +163,8 @@ window_valid_set = create_fixed_length_windows(
 )
 
 
+window_train_set.transform = lambda x: x*1e6
+window_valid_set.transform = lambda x: x*1e6
 # ## Initialize Data Loaders
 
 num_workers = 8
