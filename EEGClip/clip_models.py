@@ -37,8 +37,8 @@ class CFG:
     eeg_embedding_dim =  256#768 #256 #128 #768 #2048
     nb_categories = 2
     category_embedding_dim = 768
-    text_encoder_model = "AshtonIsNotHere/GatorTron-OG"#"distilbert-base-uncased" #"AshtonIsNotHere/GatorTron-OG" #"bert-base-uncased" #"microsoft/biogpt" #"microsoft/BioGPT-Large-PubMedQA" #"AshtonIsNotHere/GatorTron-OG" # "" " "distilbert-base-uncased" #"emilyalsentzer/Bio_ClinicalBERT"
-    text_embedding_dim = 1024 #
+    text_encoder_model = "bert-base-uncased" #"AshtonIsNotHere/GatorTron-OG"#"distilbert-base-uncased" #"AshtonIsNotHere/GatorTron-OG" #"bert-base-uncased" #"microsoft/biogpt" #"microsoft/BioGPT-Large-PubMedQA" #"AshtonIsNotHere/GatorTron-OG" # "" " "distilbert-base-uncased" #"emilyalsentzer/Bio_ClinicalBERT"
+    text_embedding_dim = 768 #
     text_tokenizer = text_encoder_model #"distilbert-base-uncased"
     max_length = 512
 

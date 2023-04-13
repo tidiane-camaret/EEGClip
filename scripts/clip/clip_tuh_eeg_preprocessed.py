@@ -206,6 +206,7 @@ wandb_logger = WandbLogger(project="EEGClip",save_dir = "results/wandb")
 #logger = TensorBoardLogger("results/tb_logs", name="EEG_Clip")
 
 trainer = Trainer(
+    default_root_dir="results/models",
     devices=1,
     accelerator="gpu",
     max_epochs=n_epochs,
