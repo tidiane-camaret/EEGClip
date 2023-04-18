@@ -5,13 +5,13 @@
 
 # ## Hyperparameters
 
-n_recordings_to_load = 300
+n_recordings_to_load = 100
 target_name = 'pathological'
 n_max_minutes = 3
 sfreq = 100
 n_minutes = 2
 input_window_samples = 1200
-n_epochs = 50
+n_epochs = 10
 batch_size = 64
 # This was from High-Gamma dataset optimization:
 #lr = 1 * 0.01
@@ -67,7 +67,7 @@ from braindecode.datasets.tuh import TUHAbnormal
 data_path = '/home/jovyan/mne_data/TUH_PRE/tuh_eeg_abnormal/v2.0.0/edf/'
 dataset = TUHAbnormal(
     path=data_path,
-    recording_ids=None,#range(n_recordings_to_load),  # loads the n chronologically first recordings
+    recording_ids=range(n_recordings_to_load),  # loads the n chronologically first recordings
     target_name=target_name,  # age, gender, pathology
     preload=False,
     add_physician_reports=False,
@@ -215,3 +215,5 @@ trainer.fit(
             lr = lr), 
         train_loader, 
         valid_loader)
+        
+trainer.save_checkpoint("example.ckpt")

@@ -11,6 +11,7 @@ from braindecode.preprocessing import create_fixed_length_windows
 from pytorch_lightning.callbacks.progress import TQDMProgressBar
 from pytorch_lightning.loggers import TensorBoardLogger, WandbLogger
 from pytorch_lightning import Trainer
+from pytorch_lightning.callbacks import ModelCheckpoint
 
 from EEGClip.clip_models import EEGClipModule
 
@@ -24,7 +25,7 @@ n_max_minutes = 3
 sfreq = 100
 n_minutes = 2
 input_window_samples = 1200
-n_epochs = 500
+n_epochs = 20
 batch_size = 64
 # This was from High-Gamma dataset optimization:
 #lr = 1 * 0.01
@@ -205,27 +206,27 @@ from EEGClip.classifier_models import EEGClassifierModule
 wandb_logger = WandbLogger(project="EEGClip",save_dir = "results/wandb")
 #logger = TensorBoardLogger("results/tb_logs", name="EEG_Clip")
 
+
+
+checkpoint_callback = ModelCheckpoint(
+    filepath="/home/jovyan/EEGClip/results/models",
+    save_top_k=1,
+    verbose=True,
+    monitor='val_loss',
+    mode='min',
+    prefix=''
+)
+
 trainer = Trainer(
-    default_root_dir="results/models",
     devices=1,
     accelerator="gpu",
     max_epochs=n_epochs,
     #callbacks=[TQDMProgressBar(refresh_rate=20)],
     logger=wandb_logger,
-    #profiler="advanced"
+    checkpoint_callback=checkpoint_callback
 )
 
 
-"""
-trainer.validate(                
-                EEGClipModule(
-                         eeg_classifier_model=eeg_classifier_model,
-                         lr = lr, 
-                         ), 
-                         dataloaders=valid_loader
-                )
-
-"""
 trainer.fit(
                 EEGClipModule(
                          n_chans=n_chans,
@@ -236,3 +237,4 @@ trainer.fit(
                 valid_loader
             )
 
+trainer.save_checkpoint("results/models/eegclipmodel.ckpt")
