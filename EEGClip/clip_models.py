@@ -394,11 +394,13 @@ class EEGClipClassifierModule(pl.LightningModule):
         
         #labels = [0 if l <= 50 else 1 for l in labels] #age
         #labels = [0 if l=="M" else 1 for l in labels] 
+        # if label contains "epilep" and does not contain "no epilep" then label = 1 (no case check)
+        labels = [0 if "epilep" not in l.lower() or "no epilep" in l.lower() else 1 for l in labels]
 
-        #labels = torch.LongTensor(labels).to(CFG.device)
 
+        labels = torch.LongTensor(labels).to(CFG.device)
+        #labels = labels.long()  #pathological
 
-        labels = labels.long()  #pathological
         return logits, labels
     
     def training_step(self, batch, batch_idx):
