@@ -394,7 +394,7 @@ class EEGClipClassifierModule(pl.LightningModule):
         #labels = labels.long()  #pathological
         labels = [0 if l=="M" else 1 for l in labels]
 
-        labels = torch.IntTensor(labels)
+        labels = torch.IntTensor(labels).to(CFG.device)
         return logits, labels
     
     def training_step(self, batch, batch_idx):
