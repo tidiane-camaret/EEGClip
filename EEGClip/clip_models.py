@@ -385,13 +385,16 @@ class EEGClipClassifierModule(pl.LightningModule):
 
     def forward(self, batch):
 
-        eeg, label, id_batch = batch
+        eeg, labels, id_batch = batch
         eeg_features = self.eeg_clip_module.eeg_encoder(eeg)
         eeg_features = torch.mean(eeg_features, dim=2) #TODO : think about how to pool the features. Simple mean ? 
         eeg_features_proj = self.eeg_clip_module.eeg_projection(eeg_features)
         logits = self.classifier(eeg_features_proj)
 
-        labels = label.long()
+        #labels = labels.long()  #pathological
+        labels = [0 if l=="M" else 1 for l in labels]
+
+        labels = torch.IntTensor(labels)
         return logits, labels
     
     def training_step(self, batch, batch_idx):

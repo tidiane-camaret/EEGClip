@@ -7,7 +7,7 @@
 # ## Hyperparameters
 
 n_recordings_to_load = 100
-target_name = 'pathological'
+target_name = 'gender'
 n_max_minutes = 3
 sfreq = 100
 n_minutes = 2
