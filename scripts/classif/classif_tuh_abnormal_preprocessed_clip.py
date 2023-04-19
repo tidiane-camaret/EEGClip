@@ -209,13 +209,12 @@ trainer = Trainer(
     #profiler="advanced"
 )
 
-
 trainer.fit(
-            EEGClipClassifierModule(
-                lr = lr,
-                weight_decay = weight_decay,
-                )
-                train_loader, 
-                valid_loader
-        )
+    model = EEGClipClassifierModule(
+        lr=lr,
+        weight_decay=weight_decay,
+    ),
+    train_dataloader=train_loader,
+    val_dataloaders=valid_loader,
+)
         
