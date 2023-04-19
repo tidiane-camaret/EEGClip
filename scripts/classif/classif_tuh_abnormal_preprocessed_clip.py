@@ -1,4 +1,5 @@
 
+
 # ## notebook setup, not necessary for code to run
 
 # %%
@@ -20,6 +21,7 @@ lr = 5e-3
 weight_decay = 5e-4
 
 seed = 20210325  # random seed to make results reproducible
+
 
 # atm window stride determined automatically as n_preds_per_input, could also parametrize it 
 
@@ -67,7 +69,7 @@ from braindecode.datasets.tuh import TUHAbnormal
 data_path = '/home/jovyan/mne_data/TUH_PRE/tuh_eeg_abnormal/v2.0.0/edf/'
 dataset = TUHAbnormal(
     path=data_path,
-    recording_ids=range(n_recordings_to_load),  # loads the n chronologically first recordings
+    recording_ids=None,  # loads the n chronologically first recordings
     target_name=target_name,  # age, gender, pathology
     preload=False,
     add_physician_reports=False,
@@ -209,12 +211,13 @@ trainer = Trainer(
     #profiler="advanced"
 )
 
+
 trainer.fit(
-    model = EEGClipClassifierModule(
+    EEGClipClassifierModule(
         lr=lr,
         weight_decay=weight_decay,
     ),
-    train_dataloader=train_loader,
-    val_dataloaders=valid_loader,
+    train_loader,
+    valid_loader,
 )
         

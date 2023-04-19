@@ -216,4 +216,4 @@ trainer.fit(
         train_loader, 
         valid_loader)
         
-trainer.save_checkpoint("example.ckpt")
+#trainer.save_checkpoint("example.ckpt")

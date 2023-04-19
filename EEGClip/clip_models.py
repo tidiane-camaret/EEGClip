@@ -182,6 +182,7 @@ class EEGClipModule(pl.LightningModule):
         self.valid_features = []
         self.valid_labels = []
 
+        self.save_hyperparameters()
 
 
     def forward(self, batch):
@@ -368,28 +369,38 @@ class EEGClipClassifierModule(pl.LightningModule):
     def __init__(self, 
                 lr,
                 weight_decay,):
-        self.eeg_clip_module = EEGClipModule(lr, weight_decay).load_from_checkpoint("/home/jovyan/results/models/eegclipmodel.ckpt")
+        super().__init__()
+        self.lr = lr
+        self.weight_decay = weight_decay
+        self.eeg_clip_module = EEGClipModule(lr, weight_decay) #
+        self.eeg_clip_module = EEGClipModule.load_from_checkpoint("/home/jovyan/results/models/eegclipmodel.ckpt",lr=lr, weight_decay=weight_decay)
         self.eeg_clip_module.freeze()
 
-        self.classifier = nn.Linear(self.eeg_clip_module.eeg_encoder.output_dim, 2)
+        self.classifier = nn.Linear(CFG.projection_dim, 2)
 
     def forward(self, batch):
-        eeg, label = batch
-        eeg_features = self.eeg_clip_module.eeg_encoder(eeg)
-        eeg_features_proj = self.eeg_clip_module.eeg_projection(eeg_features)
 
+        eeg, label, id_batch = batch
+        print(eeg.shape)
+        eeg_features = self.eeg_clip_module.eeg_encoder(eeg)
+        print(eeg_features.shape)
+        eeg_features = torch.mean(eeg_features, dim=2) #TODO : think about how to pool the features. Simple mean ? 
+        eeg_features_proj = self.eeg_clip_module.eeg_projection(eeg_features)
+        print(eeg_features_proj.shape)
         logits = self.classifier(eeg_features_proj)
-        return logits
+
+        labels = label.long()
+        return logits, labels
     
     def training_step(self, batch, batch_idx):
-        logits = self.forward(batch)
-        loss = nn.CrossEntropyLoss()(logits, batch[1])
+        logits, labels = self.forward(batch)
+        loss = nn.CrossEntropyLoss()(logits, labels)
         self.log('train_loss', loss, prog_bar=True)
         return loss
     
     def validation_step(self, batch, batch_idx):
-        logits = self.forward(batch)
-        loss = nn.CrossEntropyLoss()(logits, batch[1])
+        logits, labels = self.forward(batch)
+        loss = nn.CrossEntropyLoss()(logits, labels)
         self.log('val_loss', loss, prog_bar=True)
         return loss
     

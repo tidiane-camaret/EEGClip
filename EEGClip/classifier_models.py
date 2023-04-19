@@ -13,9 +13,9 @@ class EEGClassifierModule(pl.LightningModule):
 
     def training_step(self, batch, batch_nb):
         x, y, z = batch
-        #print("INPUT SHAPE : ", x.shape)
+        print("INPUT SHAPE : ", x.shape)
         y_hat = self.classifier(x)
-        #print("OUTPUT SHAPE : ", y_hat.shape)
+        print("OUTPUT SHAPE : ", y_hat.shape)
         
         y_hat = torch.mean(y_hat, dim=2) #TODO : what is the dimension we do the mean on ? (several preds per window ?)
         
