@@ -12,10 +12,13 @@ from sklearn.model_selection import train_test_split
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import balanced_accuracy_score
+
 import torch
 from torch import nn
 import torch.nn.functional as F
+
 from braindecode.models import Deep4Net
+from braindecode.training.scoring import trial_preds_from_window_preds
 
 from transformers import DistilBertModel, DistilBertConfig, DistilBertTokenizer
 from transformers import AutoTokenizer, AutoModel, AutoModelForCausalLM
@@ -383,11 +386,20 @@ class EEGClipClassifierModule(pl.LightningModule):
             nn.Linear(128, 2)
         )
 
+        self.train_features = []
+        self.train_labels = []
+        self.train_logits = []
+
+        self.valid_features = []
+        self.valid_labels = []
+        self.valid_logits = []
+        self.valid_ids = []
+
     def forward(self, batch):
 
         eeg, labels, id_batch = batch
         eeg_features = self.eeg_clip_module.eeg_encoder(eeg)
-        eeg_features = torch.mean(eeg_features, dim=2) #TODO : think about how to pool the features. Simple mean ? 
+        eeg_features = torch.mean(eeg_features, dim=2) #DONE : think about how to pool the features. Simple mean like Robin did
         eeg_features_proj = self.eeg_clip_module.eeg_projection(eeg_features)
         logits = self.classifier(eeg_features_proj)
 
@@ -401,10 +413,15 @@ class EEGClipClassifierModule(pl.LightningModule):
         labels = torch.LongTensor(labels).to(CFG.device)
         #labels = labels.long()  #pathological
 
-        return logits, labels
+        return logits, labels, eeg_features_proj, id_batch
     
     def training_step(self, batch, batch_idx):
-        logits, labels = self.forward(batch)
+        logits, labels, eeg_features_proj, id_batch = self.forward(batch)
+
+        self.train_features.append(eeg_features_proj)
+        self.train_labels.append(labels)
+        self.train_logits.append(logits)
+
         loss = nn.CrossEntropyLoss()(logits, labels)
         self.log('train_loss', loss, prog_bar=True)
 
@@ -413,7 +430,13 @@ class EEGClipClassifierModule(pl.LightningModule):
         return loss
     
     def validation_step(self, batch, batch_idx):
-        logits, labels = self.forward(batch)
+
+        logits, labels, eeg_features_proj, id_batch = self.forward(batch)
+        self.valid_features.append(eeg_features_proj)
+        self.valid_labels.append(labels)
+        self.valid_logits.append(logits)
+        self.valid_ids.append(id_batch)
+
         loss = nn.CrossEntropyLoss()(logits, labels)
         self.log('val_loss', loss, prog_bar=True)
         
@@ -422,6 +445,42 @@ class EEGClipClassifierModule(pl.LightningModule):
 
         return loss
     
+    def validation_epoch_end(self, outputs):
+
+        features_valid = self.valid_features
+        targets_valid = self.valid_labels
+        logit_valid = self.valid_logits
+
+        features_valid = torch.cat(features_valid).cpu()
+        targets_valid = torch.cat(targets_valid).cpu()
+        logit_valid = torch.cat(logit_valid).cpu()
+        id_valid = torch.cat(self.valid_ids).cpu()
+
+        if self.train_features :
+            features_train = self.train_features
+            targets_train = self.train_labels
+
+            features_train = torch.cat(features_train).cpu()
+            targets_train = torch.cat(targets_train).cpu()
+
+            print("balance in train set : ", torch.sum(targets_train)/targets_train.shape[0])
+            print("balance in test set : ", torch.sum(targets_valid)/targets_valid.shape[0])       
+
+            # predictions per crop
+            pred_valid_crop = np.mean(logit_valid, axis = [2]).argmax(axis = 1)
+            accuracy_crop = balanced_accuracy_score(targets_valid.tolist(), pred_valid_crop.tolist())
+            self.log('crop_acc', accuracy_crop, prog_bar=True)
+
+            # predictions per trial
+            pred_valid_trial = trial_preds_from_window_preds(logit_valid, 
+                                                             torch.cat(id_valid[0::3]),
+                                                             torch.cat(id_valid[2::3]),
+                                                            )
+
+            targets_valid_trial = targets_valid[np.diff(torch.cat(id_valid[0::3]), prepend = [np.inf]) != 1]
+            accuracy_trial = balanced_accuracy_score(targets_valid_trial.tolist(), pred_valid_trial.tolist())
+            self.log('trial_acc', accuracy_trial, prog_bar=True)
+
     def configure_optimizers(self):
         optimizer = torch.optim.AdamW(self.parameters(), lr = self.lr, weight_decay=self.weight_decay)
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max = self.trainer.max_epochs - 1)
