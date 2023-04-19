@@ -391,10 +391,14 @@ class EEGClipClassifierModule(pl.LightningModule):
         eeg_features_proj = self.eeg_clip_module.eeg_projection(eeg_features)
         logits = self.classifier(eeg_features_proj)
 
-        #labels = labels.long()  #pathological
-        labels = [0 if l=="M" else 1 for l in labels]
+        
+        #labels = [0 if l <= 50 else 1 for l in labels] #age
+        #labels = [0 if l=="M" else 1 for l in labels] 
 
-        labels = torch.LongTensor(labels).to(CFG.device)
+        #labels = torch.LongTensor(labels).to(CFG.device)
+
+
+        labels = labels.long()  #pathological
         return logits, labels
     
     def training_step(self, batch, batch_idx):

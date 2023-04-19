@@ -7,7 +7,7 @@
 # ## Hyperparameters
 
 n_recordings_to_load = 100
-target_name = 'gender'
+target_name = "pathological" #'age' 
 n_max_minutes = 3
 sfreq = 100
 n_minutes = 2
@@ -69,7 +69,7 @@ from braindecode.datasets.tuh import TUHAbnormal
 data_path = '/home/jovyan/mne_data/TUH_PRE/tuh_eeg_abnormal/v2.0.0/edf/'
 dataset = TUHAbnormal(
     path=data_path,
-    recording_ids=None,  # loads the n chronologically first recordings
+    recording_ids=None, #range(n_recordings_to_load),  # loads the n chronologically first recordings
     target_name=target_name,  # age, gender, pathology
     preload=False,
     add_physician_reports=False,
