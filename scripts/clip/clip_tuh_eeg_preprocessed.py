@@ -203,11 +203,11 @@ from EEGClip.classifier_models import EEGClassifierModule
 # ## Run Training
 
 
-wandb_logger = WandbLogger(project="EEGClip",save_dir = "results/wandb")
+wandb_logger = WandbLogger(project="EEGClip",save_dir = "/home/jovyan/EEGClip/results/wandb")
 #logger = TensorBoardLogger("results/tb_logs", name="EEG_Clip")
 
 
-
+"""
 checkpoint_callback = ModelCheckpoint(
     filepath="/home/jovyan/EEGClip/results/models",
     save_top_k=1,
@@ -216,14 +216,15 @@ checkpoint_callback = ModelCheckpoint(
     mode='min',
     prefix=''
 )
-
+"""
 trainer = Trainer(
+        default_root_dir='/home/jovyan/EEGClip/results/models',
     devices=1,
     accelerator="gpu",
     max_epochs=n_epochs,
     #callbacks=[TQDMProgressBar(refresh_rate=20)],
     logger=wandb_logger,
-    checkpoint_callback=checkpoint_callback
+    #checkpoint_callback=checkpoint_callback
 )
 
 
@@ -237,4 +238,4 @@ trainer.fit(
                 valid_loader
             )
 
-trainer.save_checkpoint("results/models/eegclipmodel.ckpt")
+trainer.save_checkpoint("/home/jovyan/EEGClip/results/models/saveexample.ckpt")
