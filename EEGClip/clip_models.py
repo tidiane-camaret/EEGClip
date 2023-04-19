@@ -360,3 +360,42 @@ class EEGClipModule(pl.LightningModule):
         optimizer = torch.optim.AdamW(self.parameters(), lr = self.lr, weight_decay=self.weight_decay)
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max = self.trainer.max_epochs - 1)
         return [optimizer], [scheduler]
+
+class EEGClipClassifierModule(pl.LightningModule):
+    """
+    This module uses the encoders from the EEGClipModule to perform classification
+    """
+    def __init__(self, 
+                lr,
+                weight_decay,):
+        self.eeg_clip_module = EEGClipModule(lr, weight_decay).load_from_checkpoint("/home/jovyan/results/models/eegclipmodel.ckpt")
+        self.eeg_clip_module.freeze()
+
+        self.classifier = nn.Linear(self.eeg_clip_module.eeg_encoder.output_dim, 2)
+
+    def forward(self, batch):
+        eeg, label = batch
+        eeg_features = self.eeg_clip_module.eeg_encoder(eeg)
+        eeg_features_proj = self.eeg_clip_module.eeg_projection(eeg_features)
+
+        logits = self.classifier(eeg_features_proj)
+        return logits
+    
+    def training_step(self, batch, batch_idx):
+        logits = self.forward(batch)
+        loss = nn.CrossEntropyLoss()(logits, batch[1])
+        self.log('train_loss', loss, prog_bar=True)
+        return loss
+    
+    def validation_step(self, batch, batch_idx):
+        logits = self.forward(batch)
+        loss = nn.CrossEntropyLoss()(logits, batch[1])
+        self.log('val_loss', loss, prog_bar=True)
+        return loss
+    
+    def configure_optimizers(self):
+        optimizer = torch.optim.AdamW(self.parameters(), lr = self.lr, weight_decay=self.weight_decay)
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max = self.trainer.max_epochs - 1)
+        return [optimizer], [scheduler]
+    
+    
