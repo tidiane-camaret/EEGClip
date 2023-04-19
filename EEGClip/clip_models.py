@@ -376,17 +376,19 @@ class EEGClipClassifierModule(pl.LightningModule):
         self.eeg_clip_module = EEGClipModule.load_from_checkpoint("/home/jovyan/results/models/eegclipmodel.ckpt",lr=lr, weight_decay=weight_decay)
         self.eeg_clip_module.freeze()
 
-        self.classifier = nn.Linear(CFG.projection_dim, 2)
+        #self.classifier = nn.Linear(CFG.projection_dim, 2)
+        self.classifier = nn.Sequential(
+            nn.Linear(CFG.projection_dim, 128),
+            nn.ReLU(),
+            nn.Linear(128, 2)
+        )
 
     def forward(self, batch):
 
         eeg, label, id_batch = batch
-        print(eeg.shape)
         eeg_features = self.eeg_clip_module.eeg_encoder(eeg)
-        print(eeg_features.shape)
         eeg_features = torch.mean(eeg_features, dim=2) #TODO : think about how to pool the features. Simple mean ? 
         eeg_features_proj = self.eeg_clip_module.eeg_projection(eeg_features)
-        print(eeg_features_proj.shape)
         logits = self.classifier(eeg_features_proj)
 
         labels = label.long()
@@ -396,12 +398,19 @@ class EEGClipClassifierModule(pl.LightningModule):
         logits, labels = self.forward(batch)
         loss = nn.CrossEntropyLoss()(logits, labels)
         self.log('train_loss', loss, prog_bar=True)
+
+        accuracy = balanced_accuracy_score(labels.tolist(), torch.argmax(logits, dim=1).tolist())
+        self.log('train_acc', accuracy, prog_bar=True)
         return loss
     
     def validation_step(self, batch, batch_idx):
         logits, labels = self.forward(batch)
         loss = nn.CrossEntropyLoss()(logits, labels)
         self.log('val_loss', loss, prog_bar=True)
+        
+        accuracy = balanced_accuracy_score(labels.tolist(), torch.argmax(logits, dim=1).tolist())
+        self.log('val_acc', accuracy, prog_bar=True)
+
         return loss
     
     def configure_optimizers(self):
