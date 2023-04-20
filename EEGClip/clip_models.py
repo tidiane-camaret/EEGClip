@@ -394,6 +394,7 @@ class EEGClipClassifierModule(pl.LightningModule):
         self.valid_labels = []
         self.valid_logits = []
         self.valid_ids = []
+        self.valid_stop_ids = []
 
     def forward(self, batch):
 
@@ -436,7 +437,8 @@ class EEGClipClassifierModule(pl.LightningModule):
         self.valid_features.append(eeg_features_proj)
         self.valid_labels.append(labels)
         self.valid_logits.append(logits)
-        self.valid_ids.append(id_batch)
+        self.valid_ids.append(id_batch[0])
+        self.valid_stop_ids.append(id_batch[2])
 
         loss = nn.CrossEntropyLoss()(logits, labels)
         self.log('val_loss', loss, prog_bar=True)
@@ -451,11 +453,15 @@ class EEGClipClassifierModule(pl.LightningModule):
         features_valid = self.valid_features
         targets_valid = self.valid_labels
         logit_valid = self.valid_logits
+        id_valid = self.valid_ids
+        stop_id_valid = self.valid_stop_ids
 
         features_valid = torch.cat(features_valid).cpu()
         targets_valid = torch.cat(targets_valid).cpu()
         logit_valid = torch.cat(logit_valid).cpu()
-        id_valid = torch.cat(self.valid_ids).cpu()
+        
+        id_valid = torch.cat(id_valid).cpu()
+        stop_id_valid = torch.cat(stop_id_valid).cpu()
 
         if self.train_features :
             features_train = self.train_features
@@ -468,18 +474,23 @@ class EEGClipClassifierModule(pl.LightningModule):
             print("balance in test set : ", torch.sum(targets_valid)/targets_valid.shape[0])       
 
             # predictions per crop
-            pred_valid_crop = np.mean(logit_valid, axis = [2]).argmax(axis = 1)
+            print(logit_valid.shape)
+            pred_valid_crop = logit_valid.argmax(axis = 1)
             accuracy_crop = balanced_accuracy_score(targets_valid.tolist(), pred_valid_crop.tolist())
             self.log('crop_acc', accuracy_crop, prog_bar=True)
 
             # predictions per trial
+            logit_valid = torch.unsqueeze(logit_valid,-1) #add dimension to work with following func
+            print(logit_valid.shape, id_valid.shape, stop_id_valid.shape)
             pred_valid_trial = trial_preds_from_window_preds(logit_valid, 
-                                                             torch.cat(id_valid[0::3]),
-                                                             torch.cat(id_valid[2::3]),
+                                                             id_valid,
+                                                             stop_id_valid,
                                                             )
+            print(pred_valid_trial, len(pred_valid_trial))
+            pred_valid_trial = np.array([p.mean(axis=1).argmax(axis=0) for p in pred_valid_trial])
 
-            targets_valid_trial = targets_valid[np.diff(torch.cat(id_valid[0::3]), prepend = [np.inf]) != 1]
-            accuracy_trial = balanced_accuracy_score(targets_valid_trial.tolist(), pred_valid_trial.tolist())
+            targets_valid_trial = targets_valid[np.diff(stop_id_valid, prepend = [np.inf]) != 1]
+            accuracy_trial = balanced_accuracy_score(targets_valid_trial, pred_valid_trial.tolist())
             self.log('trial_acc', accuracy_trial, prog_bar=True)
 
     def configure_optimizers(self):

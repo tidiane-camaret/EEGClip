@@ -218,6 +218,7 @@ for i_epoch in trange(n_epochs):
     if i_epoch > 0:
         for X,y,i in tqdm(train_loader):
             #print(X.shape)
+            #print(i)
             X = X.cuda()
             y = y.type(th.LongTensor).cuda()
             out = model(X)
@@ -243,10 +244,12 @@ for i_epoch in trange(n_epochs):
                 all_is.extend(i)
                 all_ys.extend(y.cpu().numpy())
         all_preds = np.array(all_preds)
+        #print(all_preds.shape) # (nb_crops, 2, nb_pred_per_crop)
         all_ys = np.array(all_ys)
         crop_preds = np.mean(all_preds, axis=(2)).argmax(axis=1)
         acc_cropwise = np.mean((crop_preds == all_ys))
         trial_ys = all_ys[np.diff(th.cat(all_is[0::3]), prepend=[np.inf]) != 1]
+        #print(all_preds.shape, th.cat(all_is[0::3]).shape)
         preds_per_trial = trial_preds_from_window_preds(all_preds, th.cat(all_is[0::3]), 
                                                         th.cat(all_is[2::3]),)
         trial_preds = np.array([p.mean(axis=1).argmax(axis=0) for p in preds_per_trial])
