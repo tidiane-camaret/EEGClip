@@ -7,12 +7,12 @@
 # ## Hyperparameters
 
 n_recordings_to_load = 100
-target_name = "pathological" #"gender" #"report" #"" #'age' 
+target_name = "age" #"gender" #"report" #"" #age" #"pathological" #gender" #'age' #"pathological" # #"report" #"" # 
 n_max_minutes = 3
 sfreq = 100
 n_minutes = 2
 input_window_samples = 1200
-n_epochs = 10
+n_epochs = 20
 batch_size = 64
 # This was from High-Gamma dataset optimization:
 #lr = 1 * 0.01
@@ -69,7 +69,7 @@ from braindecode.datasets.tuh import TUHAbnormal
 data_path = '/home/jovyan/mne_data/TUH_PRE/tuh_eeg_abnormal_clip/v2.0.0/edf/'
 dataset = TUHAbnormal(
     path=data_path,
-    recording_ids=range(n_recordings_to_load),  # loads the n chronologically first recordings
+    recording_ids=None,  # loads the n chronologically first recordings
     target_name=target_name,  # age, gender, pathology
     preload=False,
     add_physician_reports=True,
@@ -86,7 +86,7 @@ import numpy as np
 from copy import deepcopy
 
 
-whole_train_set = dataset.split('train')['True']
+whole_train_set = dataset#.split('train')['True']
 
 ar_ch_names = sorted([
     'EEG A1-REF', 'EEG A2-REF',
@@ -165,7 +165,7 @@ window_valid_set.transform = lambda x: x*1e6
 
 # ## Initialize Data Loaders
 
-num_workers = 0
+num_workers = 4
 
 train_loader = th.utils.data.DataLoader(
     window_train_set,
@@ -198,26 +198,36 @@ from pytorch_lightning import Trainer
 
 from EEGClip.classifier_models import EEGClassifierModule
 from EEGClip.clip_models import EEGClipClassifierModule
-# ## Run Training
-wandb_logger = WandbLogger(project="EEGClip_classif",save_dir = "/home/jovyan/EEGClip/results/wandb")
-#logger = TensorBoardLogger("results/tb_logs", name="EEG_Clip")
-
-trainer = Trainer(
-    devices=1,
-    accelerator="gpu",
-    max_epochs=n_epochs,
-    #callbacks=[TQDMProgressBar(refresh_rate=20)],
-    logger=wandb_logger,
-    #profiler="advanced"
-)
 
 
-trainer.fit(
-    EEGClipClassifierModule(
-        lr=lr,
-        weight_decay=weight_decay,
-    ),
-    train_loader,
-    valid_loader,
-)
-        
+
+for i, pretrained_and_frozen in enumerate([True, False]):
+    
+            # ## Run Training
+    wandb_logger = WandbLogger(project="EEGClip_classif",
+                           save_dir = "/home/jovyan/EEGClip/results/wandb")
+    wandb_logger.experiment.config.update({"target_name": target_name})
+
+    wandb_logger.experiment.config.update({"pretrained_and_frozen": pretrained_and_frozen},
+                                            allow_val_change=True)
+
+    trainer = Trainer(
+                devices=1,
+                accelerator="gpu",
+                max_epochs=n_epochs,
+                #callbacks=[TQDMProgressBar(refresh_rate=20)],
+                logger=wandb_logger,
+                #profiler="advanced"
+            )
+    trainer.fit(
+        EEGClipClassifierModule(
+            lr=lr,
+            weight_decay=weight_decay,
+            load_checkpoint=pretrained_and_frozen,
+            freeze_backbone=pretrained_and_frozen
+        ),
+        train_loader,
+        valid_loader,
+    )
+
+    wandb_logger.experiment.finish()

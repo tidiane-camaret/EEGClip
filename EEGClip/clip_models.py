@@ -365,19 +365,25 @@ class EEGClipModule(pl.LightningModule):
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max = self.trainer.max_epochs - 1)
         return [optimizer], [scheduler]
 
+
+
 class EEGClipClassifierModule(pl.LightningModule):
     """
     This module uses the encoders from the EEGClipModule to perform classification
     """
     def __init__(self, 
                 lr,
-                weight_decay,):
+                weight_decay,
+                load_checkpoint=True,
+                freeze_backbone=True):
         super().__init__()
         self.lr = lr
         self.weight_decay = weight_decay
         self.eeg_clip_module = EEGClipModule(lr, weight_decay) #
-        self.eeg_clip_module = EEGClipModule.load_from_checkpoint("/home/jovyan/results/models/eegclipmodel.ckpt",lr=lr, weight_decay=weight_decay)
-        self.eeg_clip_module.freeze()
+        if load_checkpoint:
+           self.eeg_clip_module = EEGClipModule.load_from_checkpoint("/home/jovyan/results/models/eegclipmodel.ckpt",lr=lr, weight_decay=weight_decay)
+        if freeze_backbone:
+            self.eeg_clip_module.freeze()
 
         #self.classifier = nn.Linear(CFG.projection_dim, 2)
         self.classifier = nn.Sequential(
@@ -405,8 +411,8 @@ class EEGClipClassifierModule(pl.LightningModule):
         logits = self.classifier(eeg_features_proj)
 
         
-        #labels = [0 if l <= 50 else 1 for l in labels] #age
-        labels = [0 if l=="M" else 1 for l in labels] 
+        labels = [0 if l <= 50 else 1 for l in labels] #age
+        #labels = [0 if l=="M" else 1 for l in labels] 
         # if label contains "epilep" and does not contain "no epilep" then label = 1 (no case check)
         #labels = [0 if "epilep" not in l.lower() or "no epilep" in l.lower() else 1 for l in labels]
         #labels = [0 if "seizure" not in l.lower() or "no seizure" in l.lower() else 1 for l in labels]
@@ -480,6 +486,7 @@ class EEGClipClassifierModule(pl.LightningModule):
             self.log('crop_acc', accuracy_crop, prog_bar=True)
 
             # predictions per trial
+            '''
             logit_valid = torch.unsqueeze(logit_valid,-1) #add dimension to work with following func
             print(logit_valid.shape, id_valid.shape, stop_id_valid.shape)
             pred_valid_trial = trial_preds_from_window_preds(logit_valid, 
@@ -492,6 +499,7 @@ class EEGClipClassifierModule(pl.LightningModule):
             targets_valid_trial = targets_valid[np.diff(stop_id_valid, prepend = [np.inf]) != 1]
             accuracy_trial = balanced_accuracy_score(targets_valid_trial, pred_valid_trial.tolist())
             self.log('trial_acc', accuracy_trial, prog_bar=True)
+            '''
 
     def configure_optimizers(self):
         optimizer = torch.optim.AdamW(self.parameters(), lr = self.lr, weight_decay=self.weight_decay)
