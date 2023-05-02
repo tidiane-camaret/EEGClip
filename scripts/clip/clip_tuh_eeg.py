@@ -19,7 +19,7 @@ from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import ModelCheckpoint
 
-from EEGClip.clip_models import EEGClipModel
+from EEGClip.clip_models_old import EEGClipModel
 from EEGClip.classifier_models import EEGClassifierModule
 
 import mne
@@ -95,7 +95,7 @@ if __name__ == "__main__":
         target_name=target_name,  # age, gender, pathology
         preload=False,
         add_physician_reports=True,
-        n_jobs=num_workers)
+        n_jobs=1)
     
     # ## Preprocessing
 

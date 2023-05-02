@@ -159,7 +159,7 @@ def cross_entropy(preds, targets, reduction='none'):
         return loss.mean()
 
 
-class EEGClipModule(pl.LightningModule):
+class EEGClipModel(pl.LightningModule):
     def __init__(
         self,
         lr,
