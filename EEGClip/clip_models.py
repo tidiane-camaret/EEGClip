@@ -127,7 +127,14 @@ class ProjectionHead(nn.Module):
         for layer in self.layers:
             x = self.dropout(F.relu(layer(x)))
         return x
-    
+
+def cross_entropy(preds, targets, reduction='none'):
+    log_softmax = nn.LogSoftmax(dim=-1)
+    loss = (-targets * log_softmax(preds)).sum(1)
+    if reduction == "none":
+        return loss
+    elif reduction == "mean":
+        return loss.mean()  
 class EEGClipModel(pl.LightningModule):
     def __init__(self, 
                  eeg_model_emb_dim=128,
@@ -209,16 +216,9 @@ class EEGClipModel(pl.LightningModule):
 
         return eeg_features, eeg_features_proj, text_features, text_features_proj, labels
 
-    def cross_entropy(preds, targets, reduction='none'):
-        log_softmax = nn.LogSoftmax(dim=-1)
-        loss = (-targets * log_softmax(preds)).sum(1)
-        if reduction == "none":
-            return loss
-        elif reduction == "mean":
-            return loss.mean()
+
 
     def loss_calculation(self, eeg_features_proj, text_features_proj):
-        cross_entropy = self.cross_entropy
         logits = (text_features_proj @ eeg_features_proj.T) / CFG.temperature
         targets = torch.eye(logits.shape[0]).to(CFG.device)
         # shape: (batch_size * batch_size)
@@ -260,7 +260,7 @@ class EEGClipModel(pl.LightningModule):
         labels_valid = torch.cat(labels_valid).cpu()
 
 
-        if self.train_features :
+        if self.features_train :
             features_train = torch.cat(self.features_train).cpu()
             labels_train = torch.cat(self.labels_train).cpu()
 

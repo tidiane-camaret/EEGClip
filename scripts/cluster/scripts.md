@@ -1,4 +1,8 @@
-### How to use the cluster
+### Run on Nail Cluster
+python3 -m scripts.clip.clip_tuh_eeg --n_recordings_to_load 3000 --nailcluster
+
+
+### Run on KISlurm
 
 # information about resources
 sinfo
