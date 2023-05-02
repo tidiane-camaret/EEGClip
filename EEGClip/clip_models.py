@@ -308,7 +308,7 @@ class EEGClipModule(pl.LightningModule):
         return loss
 
     
-    def on_validation_epoch_end(self, outputs):
+    def on_validation_epoch_end(self):
 
         features_valid = self.valid_features
         targets_valid = self.valid_labels
@@ -454,7 +454,7 @@ class EEGClipClassifierModule(pl.LightningModule):
 
         return loss
     
-    def on_validation_epoch_end(self, outputs):
+    def on_validation_epoch_end(self):
 
         features_valid = self.valid_features
         targets_valid = self.valid_labels
