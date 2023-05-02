@@ -188,7 +188,7 @@ class EEGClipModel(pl.LightningModule):
         self.labels_train = []
         self.features_valid = []
         self.labels_valid = []
-        
+
     def forward(self, batch):
         eeg_batch, string_batch, id_batch = batch
 
@@ -208,11 +208,18 @@ class EEGClipModel(pl.LightningModule):
         labels = torch.IntTensor(labels).to(CFG.device)
 
         return eeg_features, eeg_features_proj, text_features, text_features_proj, labels
- 
+
+    def cross_entropy(preds, targets, reduction='none'):
+        log_softmax = nn.LogSoftmax(dim=-1)
+        loss = (-targets * log_softmax(preds)).sum(1)
+        if reduction == "none":
+            return loss
+        elif reduction == "mean":
+            return loss.mean()
 
     def loss_calculation(self, eeg_features_proj, text_features_proj):
-        cross_entropy = nn.CrossEntropyLoss()
-        logits = (text_features_proj @ eeg_features_proj.T) / self.temperature
+        cross_entropy = self.cross_entropy
+        logits = (text_features_proj @ eeg_features_proj.T) / CFG.temperature
         targets = torch.eye(logits.shape[0]).to(CFG.device)
         # shape: (batch_size * batch_size)
         texts_loss = cross_entropy(logits, targets, reduction='none')
