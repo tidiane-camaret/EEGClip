@@ -182,6 +182,13 @@ class EEGClipModel(pl.LightningModule):
             num_layers=num_proj_layers,
         )
 
+
+        # save features and labels for classification
+        self.features_train = []
+        self.labels_train = []
+        self.features_valid = []
+        self.labels_valid = []
+        
     def forward(self, batch):
         eeg_batch, string_batch, id_batch = batch
 
