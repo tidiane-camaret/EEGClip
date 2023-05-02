@@ -1,7 +1,15 @@
 ### How to use the cluster
 
+# information about resources
+sinfo
+sfree
+
 # start an interactive session
-srun -p ml_gpu-rtx2080 --time=1:00:00 --pty bash
+srun -p ml_gpu-rtx2080 -c 20 --time=1:00:00 --pty bash 
 
 # run scripts
-python3 -m scripts.clip.clip_tuh_eeg
+cd ~/dev/neuro_ai/EEGClip
+python3 -m scripts.clip.clip_tuh_eeg --n_recordings_to_load 2993
+
+
+# start a job

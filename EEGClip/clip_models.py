@@ -21,7 +21,7 @@ from braindecode.models import Deep4Net
 from braindecode.training.scoring import trial_preds_from_window_preds
 
 from transformers import DistilBertModel, DistilBertConfig, DistilBertTokenizer
-from transformers import AutoTokenizer, AutoModel, AutoModelForCausalLM
+from transformers import AutoTokenizer, AutoModel, AutoModelForCausalLM, AutoConfig
 
 import pytorch_lightning as pl
 import wandb 

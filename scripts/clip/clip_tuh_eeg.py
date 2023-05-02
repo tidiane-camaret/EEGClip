@@ -25,6 +25,12 @@ from EEGClip.classifier_models import EEGClassifierModule
 import mne
 mne.set_log_level('ERROR')  # avoid messages everytime a window is extracted
 
+import os
+# aparrently this is needed to avoid a deadlock in the DataLoader
+# TODO : check if this is still needed
+# https://github.com/huggingface/transformers/issues/5486
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
 """
 This script is used to train the EEGClip model on the TUH EEG dataset.
 """
