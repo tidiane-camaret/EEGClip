@@ -1,5 +1,3 @@
-import os
-import gc
 import random
 import numpy as np
 import pandas as pd
@@ -17,11 +15,9 @@ import torch.nn.functional as F
 from braindecode.models import Deep4Net
 from braindecode.training.scoring import trial_preds_from_window_preds
 
-from transformers import DistilBertModel, DistilBertConfig, DistilBertTokenizer
 from transformers import AutoTokenizer, AutoModel, AutoModelForCausalLM, AutoConfig
 
 import pytorch_lightning as pl
-import wandb 
 
 class CFG:
     """Configuration class for the EEGClip model
@@ -39,10 +35,10 @@ class CFG:
 
 class TextEncoder(nn.Module):
     def __init__(self, 
-                 text_encoder_name="bert-base-uncased",
-                 text_encoder_pretrained=True,
-                 text_encoder_trainable=False,
-                 string_sampling=False,
+                 text_encoder_name,
+                 text_encoder_pretrained,
+                 text_encoder_trainable,
+                 string_sampling,
                 ):
         super().__init__()
         if text_encoder_pretrained:
@@ -83,10 +79,10 @@ class TextEncoder(nn.Module):
     
 class EEGEncoder(nn.Module):
     def __init__(self, 
-                 eeg_model_emb_dim=128,
-                 n_chans=21,
-                 eeg_model_pretrained=False,
-                 eeg_model_trainable=True,
+                 eeg_model_emb_dim,
+                 n_chans,
+                 eeg_model_pretrained,
+                 eeg_model_trainable,
                 ):
         super().__init__()
 
@@ -135,6 +131,7 @@ def cross_entropy(preds, targets, reduction='none'):
         return loss
     elif reduction == "mean":
         return loss.mean()  
+    
 class EEGClipModel(pl.LightningModule):
     def __init__(self, 
                  eeg_model_emb_dim=128,
@@ -145,7 +142,7 @@ class EEGClipModel(pl.LightningModule):
                  text_encoder_trainable=False,
                  eeg_model_pretrained=False,
                  eeg_model_trainable=True,
-                 string_sampling=True,
+                 string_sampling=False,
                  dropout=0.1,
                  num_proj_layers=3,
                  lr=1e-3,
@@ -154,6 +151,7 @@ class EEGClipModel(pl.LightningModule):
                  n_chans=21,
                  **kwargs
                 ):
+        
         super().__init__()
         self.save_hyperparameters()
         self.lr = lr

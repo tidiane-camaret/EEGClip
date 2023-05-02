@@ -26,10 +26,6 @@ import mne
 mne.set_log_level('ERROR')  # avoid messages everytime a window is extracted
 
 import os
-# aparrently this is needed to avoid a deadlock in the DataLoader
-# TODO : check if this is still needed
-# https://github.com/huggingface/transformers/issues/5486
-os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 """
 This script is used to train the EEGClip model on the TUH EEG dataset.
@@ -58,7 +54,8 @@ if __name__ == "__main__":
     num_workers = 8
 
     n_recordings_to_load = args.n_recordings_to_load
-    target_name = 'report'
+    target_name = "report" #('report', 'pathological', 'age', 'gender')
+    # TODO : find a way to use several targets
     n_max_minutes = 3
     sfreq = 100
     n_minutes = 2
@@ -71,10 +68,15 @@ if __name__ == "__main__":
 
     if args.nailcluster:
         results_dir = "/home/jovyan/EEGClip/results/"
-        tuh_data_dir = "/home/jovyan/mne_data/TUH/tuh_eeg_abnormal/v2.0.0/edf/"
+        tuh_data_dir = "/home/jovyan/mne_data/TUH_PRE/tuh_eeg_abnormal_clip/v2.0.0/edf/"
     else:
         results_dir = "/home/ndirt/dev/neuro_ai/EEGClip/results/"
         tuh_data_dir = "/data/datasets/TUH/EEG/tuh_eeg_abnormal/v2.0.0/edf/"
+        
+        # apparently this is needed to avoid a deadlock in the DataLoader
+        # TODO : check if this is still needed
+        # https://github.com/huggingface/transformers/issues/5486
+        os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
     # TODO : use get_output_shape (requires to load the model first)
     n_preds_per_input = 519 #get_output_shape(eeg_classifier_model, n_chans, input_window_samples)[2]
@@ -115,7 +117,8 @@ if __name__ == "__main__":
         Preprocessor(fn='resample', sfreq=sfreq),
     ]
     # Preprocess the data
-    preprocess(dataset, preprocessors)
+    if not args.nailcluster:
+        preprocess(dataset, preprocessors)
 
     # ## Data Splitting
     # TODO : split using train and test splits instead
@@ -158,8 +161,9 @@ if __name__ == "__main__":
     )
 
     ### PREPROCESSING NECESSARY IF USING TUH_PRE
-    #window_train_set.transform = lambda x: x*1e6
-    #window_valid_set.transform = lambda x: x*1e6
+    if args.nailcluster:
+        window_train_set.transform = lambda x: x*1e6
+        window_valid_set.transform = lambda x: x*1e6
 
     train_loader = torch.utils.data.DataLoader(
         window_train_set,
