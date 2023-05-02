@@ -1,5 +1,5 @@
 ### Run on Nail Cluster
-python3 -m scripts.clip.clip_tuh_eeg --n_recordings_to_load 3000 --nailcluster
+python3 -m scripts.clip.clip_tuh_eeg --n_recordings_to_load 2993 --nailcluster
 
 
 ### Run on KISlurm
