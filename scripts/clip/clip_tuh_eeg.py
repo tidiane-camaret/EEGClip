@@ -19,7 +19,7 @@ from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import ModelCheckpoint
 
-from EEGClip.clip_models import EEGClipModule
+from EEGClip.clip_models import EEGClipModel
 from EEGClip.classifier_models import EEGClassifierModule
 
 import mne
@@ -47,6 +47,8 @@ if __name__ == "__main__":
                         help='Learning rate to train EEGClip model.')
     parser.add_argument('--weight_decay', type=float, default=5e-4,
                         help='Weight decay to train EEGClip model.')
+    parser.add_argument('--nailcluster', action='store_true',
+                        help='Whether to run on the Nail cluster(paths differ)')
     
 
     args = parser.parse_args()
@@ -67,7 +69,12 @@ if __name__ == "__main__":
     lr = args.lr
     weight_decay = args.weight_decay
 
-    results_dir = "/home/ndirt/dev/neuro_ai/EEGClip/results/"
+    if args.nailcluster:
+        results_dir = "/home/jovyan/EEGClip/results/"
+        tuh_data_dir = "/home/jovyan/mne_data/TUH/tuh_eeg_abnormal/v2.0.0/edf/"
+    else:
+        results_dir = "/home/ndirt/dev/neuro_ai/EEGClip/results/"
+        tuh_data_dir = "/data/datasets/TUH/EEG/tuh_eeg_abnormal/v2.0.0/edf/"
 
     # TODO : use get_output_shape (requires to load the model first)
     n_preds_per_input = 519 #get_output_shape(eeg_classifier_model, n_chans, input_window_samples)[2]
@@ -80,9 +87,8 @@ if __name__ == "__main__":
     torch.backends.cudnn.benchmark = True
 
     # ## Load data
-    tuh_data_path = "/data/datasets/TUH/EEG/tuh_eeg_abnormal/v2.0.0/edf/"
     dataset = TUHAbnormal(
-        path=tuh_data_path,
+        path=tuh_data_dir,
         recording_ids=range(n_recordings_to_load),  # loads the n chronologically first recordings
         target_name=target_name,  # age, gender, pathology
         preload=False,
@@ -189,7 +195,7 @@ if __name__ == "__main__":
         logger=wandb_logger,
         )
     trainer.fit(
-                EEGClipModule(
+                EEGClipModel(
                          n_chans=n_chans,
                          lr = lr, 
                          weight_decay=weight_decay
