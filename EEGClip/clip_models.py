@@ -299,7 +299,8 @@ class EEGClipModel(pl.LightningModule):
 
         features_valid = torch.cat(self.features_valid).cpu()
         ids_valid = torch.cat(self.ids_valid).cpu()
-        labels_valid = extract_label_from_ids(ids_valid)
+        #labels_valid = extract_label_from_ids(ids_valid)
+        labels_valid = torch.cat(self.labels_valid).cpu()
 
         equal_to_extracted = (labels_valid == torch.cat(self.labels_valid).cpu())
         print("proportion of correctly extracted labels (train): ", torch.sum(equal_to_extracted)/equal_to_extracted.shape[0])
@@ -309,8 +310,8 @@ class EEGClipModel(pl.LightningModule):
         if self.features_train :
             features_train = torch.cat(self.features_train).cpu()
             ids_train = torch.cat(self.ids_train).cpu()
-            labels_train = extract_label_from_ids(ids_train)
-
+            #labels_train = extract_label_from_ids(ids_train)
+            labels_train = torch.cat(self.labels_train).cpu()
             equal_to_extracted = (labels_train == torch.cat(self.labels_train).cpu())
             print("proportion of correctly extracted labels (valid): ", torch.sum(equal_to_extracted)/equal_to_extracted.shape[0])
 
