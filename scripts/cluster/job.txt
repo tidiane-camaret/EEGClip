@@ -2,7 +2,7 @@
 #SBATCH -p ml_gpu-rtx2080 # partition (queue)
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=20
-#SBATCH --mem=32G # memory pool for all cores
+#SBATCH --mem=64G # memory pool for all cores
 #SBATCH -o scripts/cluster/logs/%x.%N.%j.out # STDOUT file  (the folder log has to be created prior to running or this won't work, %x %N %j will be replaced by jobname hostname jobid)
 #SBATCH -e scripts/cluster/logs/%x.%N.%j.err # STDERR file (the folder log has to be created prior to running or this won't work)
 #SBATCH -J clip_tuh_eeg_job # sets the job name. If not specified, the file name will be used as job name

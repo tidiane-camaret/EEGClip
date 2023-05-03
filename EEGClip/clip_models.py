@@ -318,7 +318,8 @@ class EEGClipModel(pl.LightningModule):
 
         features_valid = torch.cat(self.features_valid).cpu()
         ids_valid = torch.cat(self.ids_valid).cpu()
-        #labels_valid = extract_label_from_ids(ids_valid)
+        #labels_valid = extract_label_from_ids(ids_valid) # TODO : See why extracting label this ways leads to 50% accuracy
+        # possible reason : 
         labels_valid = torch.cat(self.labels_valid).cpu()
 
         equal_to_extracted = (labels_valid == torch.cat(self.labels_valid).cpu())
