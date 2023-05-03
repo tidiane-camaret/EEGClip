@@ -32,6 +32,8 @@ class CFG:
         'logreg': LogisticRegression(random_state=0, max_iter=1000)
     }
     max_length_tokens = 512 
+    info_df_path = 'TUH_Abnormal_EEG_rep.csv'
+    info_df = pd.read_csv(info_df_path)
 
 class TextEncoder(nn.Module):
     def __init__(self, 
@@ -151,8 +153,16 @@ def cross_entropy(preds, targets, reduction='none'):
     if reduction == "none":
         return loss
     elif reduction == "mean":
-        return loss.mean()  
-    
+        return loss.mean()
+
+def extract_label_from_ids(ids):
+    labels = []
+    for id in ids:
+        # look for id in info_df and return the "label" column
+        label = CFG.info_df.loc[CFG.info_df['ID'] == id]['LABEL'].item()
+        label = 1 if label == 'abnormal' else 0
+        labels.append(label) 
+        
 class EEGClipModel(pl.LightningModule):
     def __init__(self, 
                  eeg_model_emb_dim=128,
@@ -179,6 +189,7 @@ class EEGClipModel(pl.LightningModule):
         self.weight_decay = weight_decay
         self.num_classes = num_classes
         self.n_chans = n_chans
+
         
         self.text_encoder = TextEncoder(
             text_encoder_name=text_encoder_name,
@@ -212,8 +223,10 @@ class EEGClipModel(pl.LightningModule):
         # save features and labels for classification
         self.features_train = []
         self.labels_train = []
+        self.ids_train = []
         self.features_valid = []
         self.labels_valid = []
+        self.ids_valid = []
 
     def forward(self, batch):
         eeg_batch, string_batch, id_batch = batch
@@ -234,8 +247,11 @@ class EEGClipModel(pl.LightningModule):
         labels = [1 if "abnormal" in string.lower() else 0 for string in string_batch]
         labels = torch.IntTensor(labels).to(CFG.device)
 
-        return eeg_features, eeg_features_proj, text_features, text_features_proj, labels
+        print("ID BATCH: ", id_batch[0])
+        print("SHAPE OF ID BATCH: ", id_batch[0].shape)
+        ids = id_batch[0]
 
+        return eeg_features, eeg_features_proj, text_features, text_features_proj, labels, ids
 
 
     def loss_calculation(self, eeg_features_proj, text_features_proj):
@@ -252,9 +268,10 @@ class EEGClipModel(pl.LightningModule):
         return loss
     
     def training_step(self, batch, batch_idx):
-        eeg_features, eeg_features_proj, text_features, text_features_proj, labels = self.forward(batch)
+        eeg_features, eeg_features_proj, text_features, text_features_proj, labels, ids = self.forward(batch)
         self.features_train.append(eeg_features_proj)
         self.labels_train.append(labels)
+        self.ids_train.append(ids)
         loss = self.loss_calculation(eeg_features_proj, text_features_proj)
         self.log('train_loss', loss, prog_bar=True)
 
@@ -263,9 +280,10 @@ class EEGClipModel(pl.LightningModule):
 
 
     def validation_step(self, batch, batch_idx):
-        eeg_features, eeg_features_proj, text_features, text_features_proj, labels = self.forward(batch)
+        eeg_features, eeg_features_proj, text_features, text_features_proj, labels, ids = self.forward(batch)
         self.features_valid.append(eeg_features_proj)
         self.labels_valid.append(labels)
+        self.ids_valid.append(ids)
         loss = self.loss_calculation(eeg_features_proj, text_features_proj)
         self.log('val_loss', loss, prog_bar=True)
 
@@ -273,16 +291,21 @@ class EEGClipModel(pl.LightningModule):
     
     def on_validation_epoch_end(self):
 
-        features_valid = self.features_valid
-        labels_valid = self.labels_valid
+        features_valid = torch.cat(self.features_valid).cpu()
+        ids_valid = torch.cat(self.ids_valid).cpu()
 
-        features_valid = torch.cat(features_valid).cpu()
-        labels_valid = torch.cat(labels_valid).cpu()
+        #labels_valid = torch.cat(self.labels_valid).cpu()
+        # deduct labels from ids
+        labels_valid = extract_label_from_ids(ids_valid)
+
 
 
         if self.features_train :
             features_train = torch.cat(self.features_train).cpu()
-            labels_train = torch.cat(self.labels_train).cpu()
+            ids_train = torch.cat(self.ids_train).cpu()
+            #labels_train = torch.cat(self.labels_train).cpu()
+            # deduct labels from ids
+            labels_train = extract_label_from_ids(ids_train)
 
             print("balance in train set : ", torch.sum(labels_train)/labels_train.shape[0])
             print("balance in test set : ", torch.sum(labels_valid)/labels_valid.shape[0])
