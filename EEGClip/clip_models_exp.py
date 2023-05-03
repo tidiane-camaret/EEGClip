@@ -25,7 +25,6 @@ class CFG:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     num_workers = 8
     text_model_emb_dim = 768
-    projected_emb_dim = 256
     temperature = 1.0
     classifiers_dict = {
         'knn': KNeighborsClassifier(n_neighbors=10),
@@ -53,30 +52,24 @@ class TextEncoder(nn.Module):
         self.string_sampling = string_sampling
         self.target_token_idx = 0
 
-    def forward(self, string_batch):
-        string_batch = list(string_batch)
-        if self.string_sampling:
-            for i, string in enumerate(string_batch):
-                # look for the positions of \n occurences
-                newlines = [m.start() for m in re.finditer('\n', string)]
-                newlines.extend([0, len(string)])
-                # sample a random position
-                start = random.choice(newlines)
-                end = random.choice(newlines)
-                # make sure start < end
-                if start > end:
-                    start, end = end, start
-                # sample a random substring
-                string_batch[i] = string[start:end]
+    def forward(self, string_batch): #input_ids, attention_mask):
 
-        input_ids = self.tokenizer(string_batch, 
-                                   padding=True, 
-                                   truncation=True, 
-                                   return_tensors="pt",
-                                   max_length=CFG.max_length_tokens
-                                   ).input_ids.to(CFG.device)
-        outputs = self.model(input_ids)
-        return outputs.last_hidden_state[:,0,:]
+
+        #input_batch = input_batch.cpu().numpy()
+        #print("nb of sentences : ", len(text_batch))
+
+        string_batch = list(string_batch)
+
+        trimmed_string_batch = string_batch # most descs have token lenght <512 [string[string.find('DESCRIPTION OF THE RECORD:'):string.find('IMPRESSION:')] for string in string_batch]
+
+        tokenized_text = self.tokenizer(
+            trimmed_string_batch, padding=True, truncation=True, max_length=CFG.max_length_tokens
+        )
+
+        output = self.model(input_ids=torch.IntTensor(tokenized_text["input_ids"]).to(CFG.device),
+                            attention_mask=torch.IntTensor(tokenized_text["attention_mask"]).to(CFG.device))
+        last_hidden_state = output.last_hidden_state
+        return last_hidden_state[:, self.target_token_idx, :]
     
 class EEGEncoder(nn.Module):
     def __init__(self, 
@@ -112,21 +105,6 @@ class ProjectionHead(nn.Module):
                  num_layers=3,
                 ):
         super().__init__()
-        """ # TODO : this config sucks. it shouldnt, see why
-        self.layers = nn.ModuleList()
-        for i in range(num_layers):
-            if i == 0:
-                self.layers.append(nn.Linear(input_dim, output_dim))
-            else:
-                self.layers.append(nn.Linear(output_dim, output_dim))
-        self.dropout = nn.Dropout(dropout)
-        
-    def forward(self, x):
-        for layer in self.layers:
-            x = self.dropout(F.relu(layer(x)))
-        return x
-        """
-        super().__init__()
         embedding_dim = input_dim
         projection_dim = output_dim
         self.projection = nn.Linear(embedding_dim, projection_dim)
@@ -155,7 +133,7 @@ def cross_entropy(preds, targets, reduction='none'):
     
 class EEGClipModel(pl.LightningModule):
     def __init__(self, 
-                 eeg_model_emb_dim=128,
+                 eeg_model_emb_dim=256,
                  text_model_emb_dim=768,
                  projected_emb_dim=64,
                  text_encoder_name="bert-base-uncased",
@@ -230,7 +208,6 @@ class EEGClipModel(pl.LightningModule):
 
         # Extract the labels from the description string
         # TODO : add other labels
-        string_batch = [string[string.find('IMPRESSION:'):string.find('CLINICAL CORRELATION:')] for string in string_batch]
         labels = [1 if "abnormal" in string.lower() else 0 for string in string_batch]
         labels = torch.IntTensor(labels).to(CFG.device)
 

@@ -19,7 +19,7 @@ from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import ModelCheckpoint
 
-from EEGClip.clip_models_old import EEGClipModel
+from EEGClip.clip_models import EEGClipModel
 from EEGClip.classifier_models import EEGClassifierModule
 
 import mne
