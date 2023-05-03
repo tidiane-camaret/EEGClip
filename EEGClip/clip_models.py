@@ -63,11 +63,10 @@ class TextEncoder(nn.Module):
                 newlines = [m.start() for m in re.finditer('\n', string)]
                 newlines.extend([0, len(string)])
                 # sample a random position
-                start = random.choice(newlines)
-                end = random.choice(newlines)
-                # make sure start < end
-                if start > end:
-                    start, end = end, start
+                start, end = 0,0
+                while end <= start:
+                    start = random.choice(newlines)
+                    end = random.choice(newlines)
                 # sample a random substring
                 string_batch[i] = string[start:end]
 
