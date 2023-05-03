@@ -162,9 +162,9 @@ def extract_label_from_ids(ids):
         id = id.item()
         # look for id in info_df and return the "label" column
         label = CFG.info_df.loc[CFG.info_df['ID'] == id]['LABEL']
-        if len(label) == 0:
-            print(f'ID {id} not found in info_df')
-            continue
+        #if len(label) == 0:
+        #    print(f'ID {id} not found in info_df')
+        #    continue
         label = label.item()
         label = 1 if label == 'abnormal' else 0
         labels.append(label) 
@@ -298,11 +298,14 @@ class EEGClipModel(pl.LightningModule):
     def on_validation_epoch_end(self):
 
         features_valid = torch.cat(self.features_valid).cpu()
+        
         ids_valid = torch.cat(self.ids_valid).cpu()
-
+        print("ids_valid_shape : ", ids_valid.shape)
         #labels_valid = torch.cat(self.labels_valid).cpu()
         # deduct labels from ids
         labels_valid = extract_label_from_ids(ids_valid)
+        print("labels_valid_shape : ", labels_valid.shape)
+        print("old labels_valid_shape : ", torch.cat(self.labels_valid).cpu().shape)
         print(labels_valid == torch.cat(self.labels_valid).cpu())
 
 
@@ -331,6 +334,9 @@ class EEGClipModel(pl.LightningModule):
 
         self.features_valid.clear()
         self.labels_valid.clear()
+
+        self.ids_train.clear()
+        self.ids_valid.clear()
         
         return None
 
