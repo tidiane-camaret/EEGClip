@@ -34,3 +34,6 @@ squeue --user=$USER
 
 # see job details
 scontrol show job 3868830
+
+# cancel job
+scancel 3868830
