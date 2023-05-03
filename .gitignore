@@ -130,6 +130,7 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
 models/best.pt
 models/best_gd.pt
 data/TUH_Abnormal_EEG_rep_features.csv
@@ -141,3 +142,4 @@ results/tb_logs
 results/clip_graphs
 results/wandb
 .vscode/settings.json
+scripts/cluster/logs

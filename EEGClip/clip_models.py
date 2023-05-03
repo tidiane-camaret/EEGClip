@@ -155,14 +155,14 @@ class ProjectionHead(nn.Module):
         self.dropout = nn.Dropout(dropout)
         for i in range(num_fc_layers):
             self.fc_layers.append(nn.Linear(output_dim, output_dim))
-        #self.layer_norm = nn.LayerNorm(output_dim) # TODO : what is the benefit of layer norm here?
+        self.layer_norm = nn.LayerNorm(output_dim) # TODO : what is the benefit of layer norm here?
         
     def forward(self, x):
         x_proj = self.projection_layer(x)
         for layer in self.fc_layers:
             x_proj_fc = self.dropout(self.gelu(layer(x_proj)))
             x_proj = x_proj + x_proj_fc
-            #x_proj = self.layer_norm(x_proj)
+            x_proj = self.layer_norm(x_proj)
         return x_proj
 
 
@@ -203,7 +203,7 @@ class EEGClipModel(pl.LightningModule):
                  eeg_model_trainable=True,
                  string_sampling=False,
                  dropout=0.1,
-                 num_fc_layers=2,
+                 num_fc_layers=1,
                  lr=1e-3,
                  weight_decay=1e-6,
                  n_chans=21,

@@ -22,3 +22,13 @@ python3 -m scripts.clip.clip_tuh_eeg --n_recordings_to_load 2993
 
 
 # start a job
+sbatch scripts/cluster/job.txt
+
+# see all jobs
+sacct --user=$USER
+
+# see all running jobs
+squeue --user=$USER
+
+# see job details
+scontrol show job 3868830

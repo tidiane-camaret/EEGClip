@@ -45,13 +45,16 @@ if __name__ == "__main__":
                         help='Weight decay to train EEGClip model.')
     parser.add_argument('--nailcluster', action='store_true',
                         help='Whether to run on the Nail cluster(paths differ)')
-    
+    parser.add_argument('--string_sampling', action='store_true',
+                        help='Whether to use string sampling')
+    parser.add_argument('--num_workers', type=int, default=16,
+                        help='Number of workers to use for data loading.')
 
     args = parser.parse_args()
 
     # ## Hyperparameters
 
-    num_workers = 8
+    num_workers = args.num_workers
 
     n_recordings_to_load = args.n_recordings_to_load
     target_name = "report" #('report', 'pathological', 'age', 'gender')
@@ -65,6 +68,7 @@ if __name__ == "__main__":
     batch_size = args.batch_size
     lr = args.lr
     weight_decay = args.weight_decay
+    string_sampling = args.string_sampling
 
     if args.nailcluster:
         results_dir = "/home/jovyan/EEGClip/results/"
@@ -202,7 +206,8 @@ if __name__ == "__main__":
                 EEGClipModel(
                          n_chans=n_chans,
                          lr = lr, 
-                         weight_decay=weight_decay
+                         weight_decay=weight_decay,
+                         string_sampling = string_sampling,
                          ),
                 train_loader, 
                 valid_loader
