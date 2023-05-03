@@ -111,7 +111,7 @@ class ProjectionHead(nn.Module):
                  input_dim=128,
                  output_dim=128,
                  dropout=0.1,
-                 num_layers=3,
+                 num_fc_layers=2,
                 ):
         super().__init__()
         """ # TODO : this config sucks. it shouldnt, see why
@@ -127,7 +127,7 @@ class ProjectionHead(nn.Module):
         for layer in self.layers:
             x = self.dropout(F.relu(layer(x)))
         return x
-        """
+        
         super().__init__()
         embedding_dim = input_dim
         projection_dim = output_dim
@@ -145,6 +145,27 @@ class ProjectionHead(nn.Module):
         x = x + projected
         x = self.layer_norm(x)
         return x
+
+        """
+        ## Do the same, but with variable number of layers
+        self.projection_layer = nn.Linear(input_dim, output_dim)
+        self.fc_layers = nn.ModuleList()
+
+        self.gelu = nn.GELU()
+        self.dropout = nn.Dropout(dropout)
+        for i in range(num_fc_layers):
+            self.fc_layers.append(nn.Linear(output_dim, output_dim))
+        #self.layer_norm = nn.LayerNorm(output_dim) # TODO : what is the benefit of layer norm here?
+        
+    def forward(self, x):
+        x_proj = self.projection_layer(x)
+        for layer in self.fc_layers:
+            x_proj_fc = self.dropout(self.gelu(layer(x_proj)))
+            x_proj = x_proj + x_proj_fc
+            #x_proj = self.layer_norm(x_proj)
+        return x_proj
+
+
 
 
 def cross_entropy(preds, targets, reduction='none'):
@@ -182,10 +203,9 @@ class EEGClipModel(pl.LightningModule):
                  eeg_model_trainable=True,
                  string_sampling=False,
                  dropout=0.1,
-                 num_proj_layers=3,
+                 num_fc_layers=2,
                  lr=1e-3,
                  weight_decay=1e-6,
-                 num_classes=2,
                  n_chans=21,
                  **kwargs
                 ):
@@ -194,7 +214,6 @@ class EEGClipModel(pl.LightningModule):
         self.save_hyperparameters()
         self.lr = lr
         self.weight_decay = weight_decay
-        self.num_classes = num_classes
         self.n_chans = n_chans
 
         
@@ -216,14 +235,14 @@ class EEGClipModel(pl.LightningModule):
             input_dim=text_model_emb_dim,
             output_dim=projected_emb_dim,
             dropout=dropout,
-            num_layers=num_proj_layers,
+            num_fc_layers=num_fc_layers,
         )
         
         self.eeg_projection = ProjectionHead(
             input_dim=eeg_model_emb_dim,
             output_dim=projected_emb_dim,
             dropout=dropout,
-            num_layers=num_proj_layers,
+            num_fc_layers=num_fc_layers,
         )
 
 
