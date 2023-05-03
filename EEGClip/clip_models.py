@@ -158,10 +158,17 @@ def cross_entropy(preds, targets, reduction='none'):
 def extract_label_from_ids(ids):
     labels = []
     for id in ids:
+        # convert int tensor to int
+        id = id.item()
         # look for id in info_df and return the "label" column
-        label = CFG.info_df.loc[CFG.info_df['ID'] == id]['LABEL'].item()
+        label = CFG.info_df.loc[CFG.info_df['ID'] == id]['LABEL']
+        if len(label) == 0:
+            print(f'ID {id} not found in info_df')
+            continue
+        label = label.item()
         label = 1 if label == 'abnormal' else 0
         labels.append(label) 
+    return torch.tensor(labels)
         
 class EEGClipModel(pl.LightningModule):
     def __init__(self, 
@@ -247,8 +254,7 @@ class EEGClipModel(pl.LightningModule):
         labels = [1 if "abnormal" in string.lower() else 0 for string in string_batch]
         labels = torch.IntTensor(labels).to(CFG.device)
 
-        print("ID BATCH: ", id_batch[0])
-        print("SHAPE OF ID BATCH: ", id_batch[0].shape)
+        #print("SHAPE OF ID BATCH: ", id_batch[0].shape)
         ids = id_batch[0]
 
         return eeg_features, eeg_features_proj, text_features, text_features_proj, labels, ids
@@ -297,6 +303,7 @@ class EEGClipModel(pl.LightningModule):
         #labels_valid = torch.cat(self.labels_valid).cpu()
         # deduct labels from ids
         labels_valid = extract_label_from_ids(ids_valid)
+        print(labels_valid == torch.cat(self.labels_valid).cpu())
 
 
 
@@ -306,6 +313,7 @@ class EEGClipModel(pl.LightningModule):
             #labels_train = torch.cat(self.labels_train).cpu()
             # deduct labels from ids
             labels_train = extract_label_from_ids(ids_train)
+            print(labels_train == torch.cat(self.labels_train).cpu())
 
             print("balance in train set : ", torch.sum(labels_train)/labels_train.shape[0])
             print("balance in test set : ", torch.sum(labels_valid)/labels_valid.shape[0])
