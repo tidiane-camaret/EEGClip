@@ -298,28 +298,24 @@ class EEGClipModel(pl.LightningModule):
     def on_validation_epoch_end(self):
 
         features_valid = torch.cat(self.features_valid).cpu()
-        
         ids_valid = torch.cat(self.ids_valid).cpu()
-        print("ids_valid_shape : ", ids_valid.shape)
-        #labels_valid = torch.cat(self.labels_valid).cpu()
-        # deduct labels from ids
         labels_valid = extract_label_from_ids(ids_valid)
-        print("labels_valid_shape : ", labels_valid.shape)
-        print("old labels_valid_shape : ", torch.cat(self.labels_valid).cpu().shape)
-        print(labels_valid == torch.cat(self.labels_valid).cpu())
+
+        equal_to_extracted = (labels_valid == torch.cat(self.labels_valid).cpu())
+        print("proportion of correctly extracted labels (train): ", torch.sum(equal_to_extracted)/equal_to_extracted.shape[0])
 
 
 
         if self.features_train :
             features_train = torch.cat(self.features_train).cpu()
             ids_train = torch.cat(self.ids_train).cpu()
-            #labels_train = torch.cat(self.labels_train).cpu()
-            # deduct labels from ids
             labels_train = extract_label_from_ids(ids_train)
-            print(labels_train == torch.cat(self.labels_train).cpu())
+
+            equal_to_extracted = (labels_train == torch.cat(self.labels_train).cpu())
+            print("proportion of correctly extracted labels (valid): ", torch.sum(equal_to_extracted)/equal_to_extracted.shape[0])
 
             print("balance in train set : ", torch.sum(labels_train)/labels_train.shape[0])
-            print("balance in test set : ", torch.sum(labels_valid)/labels_valid.shape[0])
+            print("balance in valid set : ", torch.sum(labels_valid)/labels_valid.shape[0])
 
             # loop through classifiers
             for classifier_name, classifier in CFG.classifiers_dict.items():
