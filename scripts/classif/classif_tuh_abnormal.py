@@ -69,7 +69,6 @@ if __name__ == "__main__":
     batch_size = args.batch_size
     lr = args.lr
     weight_decay = args.weight_decay
-    string_sampling = args.string_sampling
 
     if args.nailcluster:
         results_dir = "/home/jovyan/EEGClip/results/"
