@@ -5,7 +5,7 @@ import pytorch_lightning as pl
 from sklearn.metrics import balanced_accuracy_score
 from braindecode.training.scoring import trial_preds_from_window_preds
 
-class EEGClipClassifierModule(pl.LightningModule):
+class EEGClassifierModel(pl.LightningModule):
     """Model for classification for the TUH dataset.
     Can use pretrained encoders.
 
@@ -18,14 +18,14 @@ class EEGClipClassifierModule(pl.LightningModule):
 
     """
     def __init__(self,
-                  encoder, 
+                  EEGEncoder, 
                   freeze_encoder=True, 
                   lr=1e-3,
                   weight_decay=1e-6,
                   encoder_output_dim = 128,
                   n_classes = 2):
         super().__init__()
-        self.encoder = encoder
+        self.encoder = EEGEncoder
         self.freeze_encoder = freeze_encoder
         self.lr = lr
         self.weight_decay = weight_decay

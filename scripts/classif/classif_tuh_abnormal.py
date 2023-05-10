@@ -186,6 +186,16 @@ if __name__ == "__main__":
     n_classes = 128 # size of the last layer of the EEG decoder
     n_chans = 21 # number of channels in the EEG data
 
+    # ## Create model
+    EEGEncoder = Deep4Net(
+    in_chans=n_chans,
+    n_classes=n_classes, 
+    input_window_samples=None,
+    final_conv_length=2,
+    stride_before_pool=True,
+)
+
+
 
     pretrained_and_frozen = True
         
@@ -206,11 +216,9 @@ if __name__ == "__main__":
                 logger=wandb_logger,
             )
     trainer.fit(
-        EEGClipClassifierModel(
-            lr=lr,
-            weight_decay=weight_decay,
-            load_checkpoint=pretrained_and_frozen,
-            freeze_backbone=pretrained_and_frozen
+        EEGClassifierModel(
+                  EEGEncoder, 
+                  freeze_encoder=True,
         ),
         train_loader,
         valid_loader,
