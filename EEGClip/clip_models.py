@@ -268,8 +268,9 @@ class EEGClipModel(pl.LightningModule):
 
         # Extract the labels from the description string
         # TODO : add other labels
-        string_batch = [string[string.find('IMPRESSION:'):string.find('CLINICAL CORRELATION:')] for string in string_batch]
-        labels = [1 if "abnormal" in string.lower() else 0 for string in string_batch]
+        #string_batch = [string[string.find('IMPRESSION:'):string.find('CLINICAL CORRELATION:')] for string in string_batch]
+        #labels = [1 if "abnormal" in string.lower() else 0 for string in string_batch]
+        labels = [0 if "seizure" not in l.lower() or "no seizure" in l.lower() else 1 for l in string_batch]
         labels = torch.IntTensor(labels).to(CFG.device)
 
         #print("SHAPE OF ID BATCH: ", id_batch[0].shape)
