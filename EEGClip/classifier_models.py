@@ -77,7 +77,7 @@ class EEGClassifierModel(pl.LightningModule):
 
         loss = self.loss_fn(pred_labels_batch, labels_batch)
         self.log('val_loss', loss)
-        print(labels_batch.shape, pred_labels_batch.shape)
+
         balanced_acc = balanced_accuracy_score(labels_batch.cpu().numpy(), torch.argmax(pred_labels_batch, dim=1).cpu().numpy())
         self.log('val_balanced_acc', balanced_acc)
 
@@ -85,10 +85,10 @@ class EEGClassifierModel(pl.LightningModule):
 
     def on_validation_epoch_end(self):
 
-        pred_labels = torch.cat(self.pred_labels, dim=0).cpu()
-        true_labels = torch.cat(self.true_labels, dim=0).cpu()
-        ids = torch.cat(self.ids, dim=0).cpu()
-        stop_ids = torch.cat(self.stop_ids, dim=0).cpu()
+        pred_labels = torch.cat(self.pred_labels).cpu()
+        true_labels = torch.cat(self.true_labels).cpu()
+        ids = torch.cat(self.ids).cpu()
+        stop_ids = torch.cat(self.stop_ids).cpu()
 
         self.pred_labels = []
         self.true_labels = []
@@ -96,13 +96,21 @@ class EEGClassifierModel(pl.LightningModule):
         self.stop_ids = []
 
         pred_labels = torch.unsqueeze(pred_labels, dim=1)
+        print(pred_labels.shape, ids.shape, stop_ids.shape)
         pred_per_recording = trial_preds_from_window_preds(pred_labels,
                                                            ids,
                                                            stop_ids
                                                            )
+        print(len(pred_per_recording))
+        
         pred_per_recording = np.array([p.mean(axis=1).argmax(axis=0) for p in pred_per_recording])
+        
+        print(pred_per_recording.shape)
 
         true_per_recording = true_labels[np.diff(stop_ids, prepend = [np.inf]) != 1]
+
+        print(true_per_recording.shape)
+
         acc_per_recording = balanced_accuracy_score(true_per_recording, pred_per_recording)
         self.log('val_balanced_acc_per_recording', acc_per_recording)
 
