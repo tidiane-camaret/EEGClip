@@ -107,7 +107,7 @@ class EEGClassifierModel(pl.LightningModule):
         
         print(pred_per_recording.shape)
 
-        true_per_recording = true_labels[np.diff(stop_ids, prepend = [np.inf]) != 1]
+        true_per_recording = true_labels[np.diff(ids, prepend = [np.inf]) != 1]
 
         print(true_per_recording.shape)
 
