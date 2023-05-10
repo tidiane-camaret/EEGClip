@@ -12,7 +12,7 @@ from braindecode.datasets.tuh import TUHAbnormal
 from braindecode.preprocessing import preprocess, Preprocessor
 from braindecode.datasets.base import BaseConcatDataset
 from braindecode.preprocessing.windowers import create_fixed_length_windows
-
+from braindecode.models import Deep4Net
 
 from pytorch_lightning import Trainer
 from pytorch_lightning.loggers import WandbLogger
