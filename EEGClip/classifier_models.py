@@ -37,7 +37,6 @@ class EEGClassifierModel(pl.LightningModule):
 
         self.classifier = torch.nn.Linear(encoder_output_dim, self.n_classes)
         self.loss_fn = torch.nn.CrossEntropyLoss()
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         self.pred_labels = []
         self.true_labels = []
