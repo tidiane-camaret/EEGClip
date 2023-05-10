@@ -60,7 +60,7 @@ class EEGClipClassifierModule(pl.LightningModule):
         loss = self.loss_fn(pred_labels_batch, labels_batch)
         self.log('train_loss', loss)
 
-        balanced_acc = balanced_accuracy_score(labels_batch.cpu().numpy(), torch.argmax(eeg_batch, dim=1).cpu().numpy())
+        balanced_acc = balanced_accuracy_score(labels_batch.cpu().numpy(), torch.argmax(pred_labels_batch, dim=1).cpu().numpy())
         self.log('train_balanced_acc', balanced_acc)
 
         return loss
