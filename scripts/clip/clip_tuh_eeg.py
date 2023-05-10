@@ -1,5 +1,4 @@
 import argparse
-import pandas as pd
 import numpy as np
 import torch 
 
@@ -20,7 +19,7 @@ from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import ModelCheckpoint
 
 from EEGClip.clip_models import EEGClipModel
-from EEGClip.classifier_models import EEGClassifierModule
+
 
 import mne
 mne.set_log_level('ERROR')  # avoid messages everytime a window is extracted
@@ -127,9 +126,6 @@ if __name__ == "__main__":
     # ## Data Splitting
     # TODO : split using train and test splits instead
     # TODO : maybe load TUH now on top of TUH Abnormal ?
-
-    import numpy as np
-
 
     subject_datasets = dataset.split('subject')
     n_subjects = len(subject_datasets)

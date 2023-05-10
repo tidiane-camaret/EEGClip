@@ -392,6 +392,7 @@ class EEGClipClassifierModule(pl.LightningModule):
             nn.Linear(128, 2)
         )
 
+
         self.train_features = []
         self.train_labels = []
         self.train_logits = []
