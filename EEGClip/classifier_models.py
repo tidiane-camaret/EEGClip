@@ -48,7 +48,7 @@ class EEGClassifierModel(pl.LightningModule):
         eeg_batch, labels_batch, id_batch = batch
         eeg_batch = self.encoder(eeg_batch)
         eeg_batch = torch.mean(eeg_batch, dim=2)
-        print(eeg_batch.shape)
+
         eeg_batch = self.classifier(eeg_batch)
         pred_labels_batch = eeg_batch
 
@@ -75,10 +75,10 @@ class EEGClassifierModel(pl.LightningModule):
         self.ids.append(id_batch[0])
         self.stop_ids.append(id_batch[2])
 
-        loss = self.loss_fn(eeg_batch, labels_batch)
+        loss = self.loss_fn(pred_labels_batch, labels_batch)
         self.log('val_loss', loss)
-
-        balanced_acc = balanced_accuracy_score(labels_batch.cpu().numpy(), torch.argmax(eeg_batch, dim=1).cpu().numpy())
+        print(labels_batch.shape, pred_labels_batch.shape)
+        balanced_acc = balanced_accuracy_score(labels_batch.cpu().numpy(), torch.argmax(pred_labels_batch, dim=1).cpu().numpy())
         self.log('val_balanced_acc', balanced_acc)
 
         return loss
