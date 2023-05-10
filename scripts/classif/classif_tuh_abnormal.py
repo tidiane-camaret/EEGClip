@@ -199,6 +199,7 @@ if __name__ == "__main__":
     pretrained_and_frozen = True
         
             # ## Run Training
+    """
     wandb_logger = WandbLogger(project="EEGClip_classif",
                         save_dir = results_dir + '/wandb',
                         log_model=True,)
@@ -206,13 +207,13 @@ if __name__ == "__main__":
 
     wandb_logger.experiment.config.update({"pretrained_and_frozen": pretrained_and_frozen},
                                             allow_val_change=True)
-
+    """
     trainer = Trainer(
                 default_root_dir=results_dir + '/models',
                 devices=1,
                 accelerator="gpu",
                 max_epochs=n_epochs,
-                logger=wandb_logger,
+    #            logger=wandb_logger,
             )
     trainer.fit(
         EEGClassifierModel(

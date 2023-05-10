@@ -47,8 +47,10 @@ class EEGClassifierModel(pl.LightningModule):
     def forward(self, batch):
         eeg_batch, labels_batch, id_batch = batch
         eeg_batch = self.encoder(eeg_batch)
+        eeg_batch = torch.mean(eeg_batch, dim=2)
+        print(eeg_batch.shape)
         eeg_batch = self.classifier(eeg_batch)
-        pred_labels_batch = torch.mean(eeg_batch, dim=2)
+        pred_labels_batch = eeg_batch
 
         labels_batch = labels_batch.long()
 
@@ -66,7 +68,7 @@ class EEGClassifierModel(pl.LightningModule):
     
     def validation_step(self, batch, batch_nb):
         eeg_batch, labels_batch, id_batch = batch
-        pred_labels_batch, labels_batch = self.forward(batch)
+        pred_labels_batch, labels_batch, _ = self.forward(batch)
 
         self.pred_labels.append(pred_labels_batch)
         self.true_labels.append(labels_batch)
