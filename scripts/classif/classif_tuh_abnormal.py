@@ -40,7 +40,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Train EEGClip on TUH EEG dataset.')
     parser.add_argument('--n_recordings_to_load', type=int, default=300,
                         help='Number of recordings to load from TUH EEG dataset.')
-    parser.add_argument('--n_epochs', type=int, default=20,
+    parser.add_argument('--n_epochs', type=int, default=50,
                         help='Number of epochs to train EEGClip model.')
     parser.add_argument('--batch_size', type=int, default=64,
                         help='Batch size to train EEGClip model.')
@@ -97,7 +97,6 @@ if __name__ == "__main__":
         add_physician_reports=False,
         n_jobs=1)
     
-    dataset = dataset.split('train')['True']
     # ## Preprocessing
 
     ar_ch_names = sorted([
@@ -126,6 +125,7 @@ if __name__ == "__main__":
     # TODO : maybe load TUH now on top of TUH Abnormal ?
 
     
+    #dataset = dataset.split('train')['True']
 
     subject_datasets = dataset.split('subject')
     n_subjects = len(subject_datasets)
@@ -192,14 +192,14 @@ if __name__ == "__main__":
 
     # ## Create model
     EEGEncoder = Deep4Net(
-    in_chans=n_chans,
-    n_classes=n_classes, 
-    input_window_samples=None,
-    final_conv_length=2,
-    stride_before_pool=True,
-)
+        in_chans=n_chans,
+        n_classes=n_classes, 
+        input_window_samples=None,
+        final_conv_length=2,
+        stride_before_pool=True,
+        )
 
-
+    to_dense_prediction_model(EEGEncoder)
 
     pretrained_and_frozen = True
         
@@ -224,6 +224,8 @@ if __name__ == "__main__":
         EEGClassifierModel(
                   EEGEncoder, 
                   freeze_encoder=False,
+                  lr = lr,
+                  weight_decay= weight_decay
         ),
         train_loader,
         valid_loader,

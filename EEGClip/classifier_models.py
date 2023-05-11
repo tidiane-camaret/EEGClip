@@ -20,8 +20,8 @@ class EEGClassifierModel(pl.LightningModule):
     def __init__(self,
                   EEGEncoder, 
                   freeze_encoder=True, 
-                  lr=1e-3,
-                  weight_decay=1e-6,
+                  lr = 5e-3,
+                  weight_decay = 5e-4,
                   encoder_output_dim = 128,
                   n_classes = 2):
         super().__init__()
@@ -63,8 +63,8 @@ class EEGClassifierModel(pl.LightningModule):
         loss = self.loss_fn(torch.mean(preds_batch,dim=2), labels_batch)
         self.log('train_loss', loss, prog_bar=True)
 
-        balanced_acc = balanced_accuracy_score(labels_batch.cpu().numpy(), torch.argmax(torch.mean(preds_batch,dim=2), dim=1).cpu().numpy())
-        self.log('train_balanced_acc', balanced_acc)
+        #balanced_acc = balanced_accuracy_score(labels_batch.cpu().numpy(), torch.argmax(torch.mean(preds_batch,dim=2), dim=1).cpu().numpy())
+        #self.log('train_balanced_acc', balanced_acc)
 
         return loss
     
@@ -81,8 +81,8 @@ class EEGClassifierModel(pl.LightningModule):
         loss = self.loss_fn(torch.mean(preds_batch,dim=2), labels_batch)
         self.log('val_loss', loss)
 
-        balanced_acc = balanced_accuracy_score(labels_batch.cpu().numpy(), torch.argmax(torch.mean(preds_batch,dim=2), dim=1).cpu().numpy())
-        self.log('val_balanced_acc', balanced_acc, prog_bar=True)
+        #balanced_acc = balanced_accuracy_score(labels_batch.cpu().numpy(), torch.argmax(torch.mean(preds_batch,dim=2), dim=1).cpu().numpy())
+        #self.log('val_balanced_acc', balanced_acc, prog_bar=True)
 
         return loss
 
@@ -132,7 +132,8 @@ class EEGClassifierModel(pl.LightningModule):
 
         acc_per_recording = balanced_accuracy_score(true_per_recording, pred_per_recording)
         """
-        self.log('val_balanced_acc_per_recording', acc_trial, prog_bar=True)
+        self.log('val_acc_per_recording', acc_trial, prog_bar=True)
+        self.log('val_acc_per_crop',acc_cropwise, prog_bar=True)
         
         
 

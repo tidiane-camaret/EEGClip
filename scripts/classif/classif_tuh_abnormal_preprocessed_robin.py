@@ -75,7 +75,7 @@ from braindecode.datasets.tuh import TUHAbnormal
 data_path = '/home/jovyan/mne_data/TUH/tuh_eeg_abnormal/v2.0.0/edf/'
 dataset = TUHAbnormal(
     path=data_path,
-    recording_ids=range(n_recordings_to_load),  # loads the n chronologically first recordings
+    #recording_ids=range(n_recordings_to_load),  # loads the n chronologically first recordings
     target_name=target_name,  # age, gender, pathology
     preload=False,
     add_physician_reports=False,
@@ -223,7 +223,7 @@ for i_epoch in trange(n_epochs):
             X = X.cuda()
             y = y.type(th.LongTensor).cuda()
             out = model(X)
-            print(out.shape)
+            #print(out.shape)
             cross_ent = th.nn.functional.cross_entropy(th.mean(out, dim=(2)), y)
             optim.zero_grad()
             cross_ent.backward()
@@ -263,10 +263,11 @@ for i_epoch in trange(n_epochs):
         #add 'train', 'valid' prefix
         results = {name + '_' + key: value for key, value in results.items()}
         epoch_results = {**epoch_results, **results}
+        """
     epochs_df = epochs_df.append(
         epoch_results,
         ignore_index=True)
-
+        """
 # %%
 epochs_df
 
