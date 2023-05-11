@@ -97,7 +97,7 @@ if __name__ == "__main__":
         add_physician_reports=False,
         n_jobs=1)
     
-
+    dataset = dataset.split('train')['True']
     # ## Preprocessing
 
     ar_ch_names = sorted([
@@ -124,6 +124,8 @@ if __name__ == "__main__":
    # ## Data Splitting
     # TODO : split using train and test splits instead
     # TODO : maybe load TUH now on top of TUH Abnormal ?
+
+    
 
     subject_datasets = dataset.split('subject')
     n_subjects = len(subject_datasets)
@@ -181,9 +183,11 @@ if __name__ == "__main__":
         shuffle=False,
         num_workers=num_workers,
         drop_last=False)
+
+    print(len(valid_loader.dataset))
     
 
-    n_classes = 128 # size of the last layer of the EEG decoder
+    n_classes = 2 #128 # size of the last layer of the EEG decoder
     n_chans = 21 # number of channels in the EEG data
 
     # ## Create model

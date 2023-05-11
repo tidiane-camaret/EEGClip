@@ -38,7 +38,7 @@ class EEGClassifierModel(pl.LightningModule):
         self.classifier = torch.nn.Linear(encoder_output_dim, self.n_classes)
         self.loss_fn = torch.nn.CrossEntropyLoss()
 
-        self.pred_labels = []
+        self.preds = []
         self.true_labels = []
         self.ids = []
         self.stop_ids = []
@@ -48,52 +48,53 @@ class EEGClassifierModel(pl.LightningModule):
     def forward(self, batch):
         eeg_batch, labels_batch, id_batch = batch
         eeg_batch = self.encoder(eeg_batch)
-        eeg_batch = torch.mean(eeg_batch, dim=2)
+        #print(eeg_batch.shape)
+        #eeg_batch = torch.mean(eeg_batch, dim=2)
 
-        eeg_batch = self.classifier(eeg_batch)
-        pred_labels_batch = eeg_batch
+        #eeg_batch = 
+        preds_batch = eeg_batch #self.classifier(eeg_batch) #shape [B, Enc_size, N_Preds]
 
         labels_batch = labels_batch.long()
 
-        return pred_labels_batch, labels_batch, id_batch
+        return preds_batch, labels_batch, id_batch
     
     def training_step(self, batch, batch_nb):
-        pred_labels_batch, labels_batch, _ = self.forward(batch)
-        loss = self.loss_fn(pred_labels_batch, labels_batch)
+        preds_batch, labels_batch, _ = self.forward(batch)
+        loss = self.loss_fn(torch.mean(preds_batch,dim=2), labels_batch)
         self.log('train_loss', loss, prog_bar=True)
 
-        balanced_acc = balanced_accuracy_score(labels_batch.cpu().numpy(), torch.argmax(pred_labels_batch, dim=1).cpu().numpy())
+        balanced_acc = balanced_accuracy_score(labels_batch.cpu().numpy(), torch.argmax(torch.mean(preds_batch,dim=2), dim=1).cpu().numpy())
         self.log('train_balanced_acc', balanced_acc)
 
         return loss
     
     def validation_step(self, batch, batch_nb):
         eeg_batch, labels_batch, id_batch = batch
-        pred_labels_batch, labels_batch, _ = self.forward(batch)
+        preds_batch, labels_batch, _ = self.forward(batch)
 
-        self.pred_labels.extend(pred_labels_batch.cpu().numpy())
+        self.preds.extend(preds_batch.cpu().numpy())
         self.true_labels.extend(labels_batch.cpu().numpy())
         self.ids.append(id_batch[0])
         self.stop_ids.append(id_batch[2])
         self.all_is.extend(id_batch)
 
-        loss = self.loss_fn(pred_labels_batch, labels_batch)
+        loss = self.loss_fn(torch.mean(preds_batch,dim=2), labels_batch)
         self.log('val_loss', loss)
 
-        balanced_acc = balanced_accuracy_score(labels_batch.cpu().numpy(), torch.argmax(pred_labels_batch, dim=1).cpu().numpy())
+        balanced_acc = balanced_accuracy_score(labels_batch.cpu().numpy(), torch.argmax(torch.mean(preds_batch,dim=2), dim=1).cpu().numpy())
         self.log('val_balanced_acc', balanced_acc, prog_bar=True)
 
         return loss
 
     def on_validation_epoch_end(self):
         
-        all_preds = self.pred_labels
+        all_preds = self.preds
         all_ys = self.true_labels
         #ids = torch.cat(self.ids).cpu()
         #stop_ids = torch.cat(self.stop_ids).cpu()
         all_is = self.all_is
 
-        self.pred_labels = []
+        self.preds = []
         self.true_labels = []
         self.ids = []
         self.stop_ids = []
@@ -102,9 +103,6 @@ class EEGClassifierModel(pl.LightningModule):
         print("balance in valid set : ", np.sum(all_ys)/len(all_ys))  
         
         all_preds = np.array(all_preds)
-        #print(all_preds.shape) # (nb_crops, 2, nb_pred_per_crop)
-        all_preds = torch.unsqueeze(torch.tensor(all_preds), dim=1)
-        all_preds = all_preds.numpy()
         all_ys = np.array(all_ys)
         all_is = [a.cpu() for a in all_is]
         crop_preds = np.mean(all_preds, axis=(2)).argmax(axis=1)

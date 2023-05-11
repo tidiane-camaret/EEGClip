@@ -196,6 +196,7 @@ valid_loader = th.utils.data.DataLoader(
     num_workers=num_workers,
     drop_last=False)
 
+print(len(valid_loader.dataset))
 # %% [markdown]
 # ## Initialize Optimizer and Scheduler
 
@@ -222,7 +223,7 @@ for i_epoch in trange(n_epochs):
             X = X.cuda()
             y = y.type(th.LongTensor).cuda()
             out = model(X)
-            #print(out.shape)
+            print(out.shape)
             cross_ent = th.nn.functional.cross_entropy(th.mean(out, dim=(2)), y)
             optim.zero_grad()
             cross_ent.backward()
