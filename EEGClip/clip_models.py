@@ -14,6 +14,7 @@ import torch.nn.functional as F
 
 from braindecode.models import Deep4Net
 from braindecode.training.scoring import trial_preds_from_window_preds
+from braindecode.models.util import to_dense_prediction_model
 
 from transformers import AutoTokenizer, AutoModel, AutoModelForCausalLM, AutoConfig
 
@@ -32,8 +33,8 @@ class CFG:
         'logreg': LogisticRegression(random_state=0, max_iter=1000)
     }
     max_length_tokens = 512 
-    info_df_path = 'TUH_Abnormal_EEG_rep.csv'
-    info_df = pd.read_csv(info_df_path)
+    #info_df_path = 'TUH_Abnormal_EEG_rep.csv'
+    #info_df = pd.read_csv(info_df_path)
 
 class TextEncoder(nn.Module):
     def __init__(self, 
@@ -95,7 +96,7 @@ class EEGEncoder(nn.Module):
             final_conv_length=2,
             stride_before_pool=True,
         )
-        
+        to_dense_prediction_model(self.model)
         if eeg_model_pretrained:
             self.model.load_state_dict(torch.load('deep4net_trained.pt'))
             
@@ -103,7 +104,8 @@ class EEGEncoder(nn.Module):
             param.requires_grad = eeg_model_trainable
 
     def forward(self, x):
-        return self.model(x)
+        eeg_features = self.model(x) 
+        return eeg_features.transpose(1,2) #[B,N_pred,Enc_size]. Allows for projection afterwards
     
 class ProjectionHead(nn.Module):
     def __init__(self, 
@@ -111,6 +113,7 @@ class ProjectionHead(nn.Module):
                  output_dim=128,
                  dropout=0.1,
                  num_fc_layers=2,
+                 transpose=False,
                 ):
         super().__init__()
         """ # TODO : this config sucks. it shouldnt, see why
@@ -155,13 +158,16 @@ class ProjectionHead(nn.Module):
         for i in range(num_fc_layers):
             self.fc_layers.append(nn.Linear(output_dim, output_dim))
         self.layer_norm = nn.LayerNorm(output_dim) # TODO : what is the benefit of layer norm here?
-        
+        self.transpose = transpose
     def forward(self, x):
         x_proj = self.projection_layer(x)
         for layer in self.fc_layers:
             x_proj_fc = self.dropout(self.gelu(layer(x_proj)))
             x_proj = x_proj + x_proj_fc
             x_proj = self.layer_norm(x_proj)
+
+        if self.transpose:
+            x_proj = x_proj.transpose(1,2)#[B,Enc_size,N_pred]
         return x_proj
 
 
@@ -242,6 +248,7 @@ class EEGClipModel(pl.LightningModule):
             output_dim=projected_emb_dim,
             dropout=dropout,
             num_fc_layers=num_fc_layers,
+            transpose = True
         )
 
 
@@ -257,12 +264,12 @@ class EEGClipModel(pl.LightningModule):
         eeg_batch, string_batch, id_batch = batch
 
         #print("CALCULATING EEG FEATURES")
-        eeg_features = self.eeg_encoder(eeg_batch)
-        eeg_features = torch.mean(eeg_features, dim=2) # Average over output channels       
+        eeg_features = self.eeg_encoder(eeg_batch)     
         text_features = self.text_encoder(string_batch)
 
         #print("PROJECTING EEG FEATURES")
         eeg_features_proj = self.eeg_projection(eeg_features)
+        eeg_features_proj = torch.mean(eeg_features_proj, dim=2)
         #print("PROJECTING TEXT FEATURES")
         text_features_proj = self.text_projection(text_features)
 
@@ -319,7 +326,7 @@ class EEGClipModel(pl.LightningModule):
         features_valid = torch.cat(self.features_valid).cpu()
         ids_valid = torch.cat(self.ids_valid).cpu()
         #labels_valid = extract_label_from_ids(ids_valid) # TODO : See why extracting label this ways leads to 50% accuracy
-        # possible reason : 
+        # possible reason : ids are not ids of recording but of crop
         labels_valid = torch.cat(self.labels_valid).cpu()
 
         equal_to_extracted = (labels_valid == torch.cat(self.labels_valid).cpu())

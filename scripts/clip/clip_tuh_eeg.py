@@ -32,7 +32,7 @@ This script is used to train the EEGClip model on the TUH EEG dataset.
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Train EEGClip on TUH EEG dataset.')
-    parser.add_argument('--n_recordings_to_load', type=int, default=50,
+    parser.add_argument('--n_rec', type=int, default=50,
                         help='Number of recordings to load from TUH EEG dataset.')
     parser.add_argument('--n_epochs', type=int, default=20,
                         help='Number of epochs to train EEGClip model.')
@@ -55,14 +55,15 @@ if __name__ == "__main__":
 
     num_workers = args.num_workers
 
-    n_recordings_to_load = args.n_recordings_to_load
+    n_recordings_to_load = args.n_rec
     target_name = "report" #('report', 'pathological', 'age', 'gender')
     # TODO : find a way to use several targets
     n_max_minutes = 3
     sfreq = 100
     n_minutes = 2
     input_window_samples = 1200
-    
+    projected_emb_dim = 16
+
     n_epochs = args.n_epochs
     batch_size = args.batch_size
     lr = args.lr
@@ -185,7 +186,7 @@ if __name__ == "__main__":
         drop_last=False)
     
 
-    n_classes = 128 # size of the last layer of the EEG decoder
+    n_classes = 16 # size of the last layer of the EEG decoder
     n_chans = 21 # number of channels in the EEG data
 
     wandb_logger = WandbLogger(project="EEGClip",save_dir = results_dir + '/wandb',log_model=True)
@@ -204,6 +205,7 @@ if __name__ == "__main__":
                          lr = lr, 
                          weight_decay=weight_decay,
                          string_sampling = string_sampling,
+                         projected_emb_dim = projected_emb_dim
                          ),
                 train_loader, 
                 valid_loader

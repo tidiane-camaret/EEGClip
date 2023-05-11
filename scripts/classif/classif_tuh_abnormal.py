@@ -20,6 +20,7 @@ from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import ModelCheckpoint
 
 from EEGClip.classifier_models import EEGClassifierModel
+from EEGClip.clip_models import EEGClipModel
 
 import mne
 mne.set_log_level('ERROR')  # avoid messages everytime a window is extracted
@@ -38,9 +39,9 @@ report-based (medication, diagnosis ...)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Train EEGClip on TUH EEG dataset.')
-    parser.add_argument('--n_recordings_to_load', type=int, default=300,
+    parser.add_argument('--n_rec', type=int, default=300,
                         help='Number of recordings to load from TUH EEG dataset.')
-    parser.add_argument('--n_epochs', type=int, default=50,
+    parser.add_argument('--n_epochs', type=int, default=3,
                         help='Number of epochs to train EEGClip model.')
     parser.add_argument('--batch_size', type=int, default=64,
                         help='Batch size to train EEGClip model.')
@@ -52,13 +53,17 @@ if __name__ == "__main__":
                         help='Whether to run on the Nail cluster(paths differ)')
     parser.add_argument('--num_workers', type=int, default=16,
                         help='Number of workers to use for data loading.')
+    parser.add_argument('--weights', type=str, default="eegclip",
+                        help='weights from pretrained model, or random')    
+    parser.add_argument('--freeze_encoder', action='store_true',
+                        help='Whether to freeze encoder during training')
 
     args = parser.parse_args()
 
     num_workers = args.num_workers
 
-    n_recordings_to_load = args.n_recordings_to_load
-    target_name = "pathological" #('pathological', 'age', 'gender')
+    n_recordings_to_load = args.n_rec
+    target_name = "gender" #('pathological', 'age', 'gender')
     # TODO : find a way to use several targets
     n_max_minutes = 3
     sfreq = 100
@@ -69,7 +74,9 @@ if __name__ == "__main__":
     batch_size = args.batch_size
     lr = args.lr
     weight_decay = args.weight_decay
-    nailcluster = True #args.nailcluster
+    nailcluster = args.nailcluster
+    weights = args.weights
+    freeze_encoder = args.freeze_encoder
 
     if nailcluster:
         results_dir = "/home/jovyan/EEGClip/results/"
@@ -148,6 +155,7 @@ if __name__ == "__main__":
         window_size_samples=input_window_samples,
         window_stride_samples=n_preds_per_input,
         drop_last_window=True,
+        mapping={'M': 0, 'F': 1}
     )
 
     window_valid_set = create_fixed_length_windows(
@@ -158,6 +166,7 @@ if __name__ == "__main__":
         window_size_samples=input_window_samples,
         window_stride_samples=n_preds_per_input,
         drop_last_window=False,
+        mapping={'M': 0, 'F': 1}
     )
 
     ### PREPROCESSING NECESSARY IF USING TUH_PRE
@@ -187,32 +196,37 @@ if __name__ == "__main__":
     print(len(valid_loader.dataset))
     
 
-    n_classes = 2 #128 # size of the last layer of the EEG decoder
+    encoder_output_dim = 16 # size of the last layer of the EEG decoder
     n_chans = 21 # number of channels in the EEG data
 
     # ## Create model
-    EEGEncoder = Deep4Net(
-        in_chans=n_chans,
-        n_classes=n_classes, 
-        input_window_samples=None,
-        final_conv_length=2,
-        stride_before_pool=True,
-        )
+    if weights == "eegclip":
+            model_name = "EEGClip_" + "n_epochs_" + "5"
+            eegclipmodel = EEGClipModel.load_from_checkpoint((results_dir + '/models/' + model_name + '.ckpt'))
+            EEGEncoder = torch.nn.Sequential(eegclipmodel.eeg_encoder,eegclipmodel.eeg_projection)
 
-    to_dense_prediction_model(EEGEncoder)
+    elif weights == "random":
+        EEGEncoder = Deep4Net(
+            in_chans=n_chans,
+            n_classes=encoder_output_dim, 
+            input_window_samples=None,
+            final_conv_length=2,
+            stride_before_pool=True,
+            )
 
-    pretrained_and_frozen = True
+        to_dense_prediction_model(EEGEncoder)
+
+
         
             # ## Run Training
-
     wandb_logger = WandbLogger(project="EEGClip_classif",
                         save_dir = results_dir + '/wandb',
                         log_model=True,)
     wandb_logger.experiment.config.update({"target_name": target_name})
 
-    wandb_logger.experiment.config.update({"pretrained_and_frozen": pretrained_and_frozen},
+    wandb_logger.experiment.config.update({"freeze_encoder": freeze_encoder,
+                                            "weights": weights},
                                             allow_val_change=True)
-
     trainer = Trainer(
                 default_root_dir=results_dir + '/models',
                 devices=1,
@@ -223,12 +237,11 @@ if __name__ == "__main__":
     trainer.fit(
         EEGClassifierModel(
                   EEGEncoder, 
-                  freeze_encoder=False,
+                  freeze_encoder=freeze_encoder,
                   lr = lr,
-                  weight_decay= weight_decay
+                  weight_decay= weight_decay,
+                  encoder_output_dim = encoder_output_dim,
         ),
         train_loader,
         valid_loader,
     )
-
-    wandb_logger.experiment.finish()
