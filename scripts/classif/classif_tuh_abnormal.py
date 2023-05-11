@@ -38,7 +38,7 @@ report-based (medication, diagnosis ...)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Train EEGClip on TUH EEG dataset.')
-    parser.add_argument('--n_recordings_to_load', type=int, default=50,
+    parser.add_argument('--n_recordings_to_load', type=int, default=300,
                         help='Number of recordings to load from TUH EEG dataset.')
     parser.add_argument('--n_epochs', type=int, default=20,
                         help='Number of epochs to train EEGClip model.')
@@ -69,8 +69,9 @@ if __name__ == "__main__":
     batch_size = args.batch_size
     lr = args.lr
     weight_decay = args.weight_decay
+    nailcluster = True #args.nailcluster
 
-    if args.nailcluster:
+    if nailcluster:
         results_dir = "/home/jovyan/EEGClip/results/"
         tuh_data_dir = "/home/jovyan/mne_data/TUH_PRE/tuh_eeg_abnormal/v2.0.0/edf/"
     else:
@@ -117,7 +118,7 @@ if __name__ == "__main__":
         Preprocessor(fn='resample', sfreq=sfreq),
     ]
     # Preprocess the data
-    if not args.nailcluster:
+    if not nailcluster:
         preprocess(dataset, preprocessors)
 
    # ## Data Splitting
@@ -158,7 +159,7 @@ if __name__ == "__main__":
     )
 
     ### PREPROCESSING NECESSARY IF USING TUH_PRE
-    if args.nailcluster:
+    if nailcluster:
         window_train_set.transform = lambda x: x*1e6
         window_valid_set.transform = lambda x: x*1e6
 
