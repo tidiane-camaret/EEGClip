@@ -39,9 +39,11 @@ report-based (medication, diagnosis ...)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Train EEGClip on TUH EEG dataset.')
+    parser.add_argument('--task_name', type=str, default="pathological",
+                        help='classification task name (pathological, age, gender, report-related tasks ....')    
     parser.add_argument('--n_rec', type=int, default=300,
                         help='Number of recordings to load from TUH EEG dataset.')
-    parser.add_argument('--n_epochs', type=int, default=3,
+    parser.add_argument('--n_epochs', type=int, default=10,
                         help='Number of epochs to train EEGClip model.')
     parser.add_argument('--batch_size', type=int, default=64,
                         help='Batch size to train EEGClip model.')
@@ -63,7 +65,9 @@ if __name__ == "__main__":
     num_workers = args.num_workers
 
     n_recordings_to_load = args.n_rec
-    target_name = "gender" #('pathological', 'age', 'gender')
+    task_name = args.task_name #('pathological', 'age', 'gender', "epilep", "keppra", "dilantin", "seizure")
+    target_name = task_name if task_name in ['pathological', 'age', 'gender'] else "report"
+    mapping = {'M': 0, 'F': 1} if target_name =="gender" else None
     # TODO : find a way to use several targets
     n_max_minutes = 3
     sfreq = 100
@@ -155,7 +159,7 @@ if __name__ == "__main__":
         window_size_samples=input_window_samples,
         window_stride_samples=n_preds_per_input,
         drop_last_window=True,
-        mapping={'M': 0, 'F': 1}
+        mapping=mapping
     )
 
     window_valid_set = create_fixed_length_windows(
@@ -166,7 +170,7 @@ if __name__ == "__main__":
         window_size_samples=input_window_samples,
         window_stride_samples=n_preds_per_input,
         drop_last_window=False,
-        mapping={'M': 0, 'F': 1}
+        mapping=mapping
     )
 
     ### PREPROCESSING NECESSARY IF USING TUH_PRE
@@ -237,6 +241,7 @@ if __name__ == "__main__":
     trainer.fit(
         EEGClassifierModel(
                   EEGEncoder, 
+                  task_name = task_name,
                   freeze_encoder=freeze_encoder,
                   lr = lr,
                   weight_decay= weight_decay,

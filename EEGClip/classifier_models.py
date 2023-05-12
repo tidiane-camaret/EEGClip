@@ -2,7 +2,7 @@ import numpy as np
 import torch
 import pytorch_lightning as pl
 
-from sklearn.metrics import balanced_accuracy_score, accuracy_score
+from sklearn.metrics import balanced_accuracy_score, accuracy_score, mean_absolute_error
 from braindecode.training.scoring import trial_preds_from_window_preds
 
 class EEGClassifierModel(pl.LightningModule):
@@ -19,6 +19,7 @@ class EEGClassifierModel(pl.LightningModule):
     """
     def __init__(self,
                   EEGEncoder, 
+                  task_name = "pathological",
                   freeze_encoder=True, 
                   lr = 5e-3,
                   weight_decay = 5e-4,
@@ -26,6 +27,7 @@ class EEGClassifierModel(pl.LightningModule):
                   n_classes = 2):
         super().__init__()
         self.encoder = EEGEncoder
+        self.task_name = task_name
         self.freeze_encoder = freeze_encoder
         self.lr = lr
         self.weight_decay = weight_decay
@@ -35,8 +37,20 @@ class EEGClassifierModel(pl.LightningModule):
             for param in self.encoder.parameters():
                 param.requires_grad = False
 
-        self.classifier = torch.nn.Linear(encoder_output_dim, self.n_classes)
-        self.loss_fn = torch.nn.CrossEntropyLoss()
+        if self.task_name == "age":
+            self.classifier = torch.nn.Sequential(
+            torch.nn.Linear(encoder_output_dim, 16),
+            torch.nn.ReLU(),
+            torch.nn.Linear(16, 1)
+            )
+        else : 
+            self.classifier = torch.nn.Sequential(
+            torch.nn.Linear(encoder_output_dim, 16),
+            torch.nn.ReLU(),
+            torch.nn.Linear(16, self.n_classes)
+            )
+
+        self.loss_fn = torch.nn.MSELoss() if self.task_name == "age" else torch.nn.CrossEntropyLoss()
 
         self.preds = []
         self.true_labels = []
@@ -55,7 +69,7 @@ class EEGClassifierModel(pl.LightningModule):
         eeg_batch = eeg_batch.transpose(1,2) # shape [B, 2, N_Preds] # can be later used  
         preds_batch = eeg_batch 
 
-        labels_batch = labels_batch.long()
+        labels_batch = labels_batch.float() if self.task_name == "age" else labels_batch.long()
 
         return preds_batch, labels_batch, id_batch
     
@@ -82,7 +96,7 @@ class EEGClassifierModel(pl.LightningModule):
         loss = self.loss_fn(torch.mean(preds_batch,dim=2), labels_batch)
         self.log('val_loss', loss)
 
-        #balanced_acc = balanced_accuracy_score(labels_batch.cpu().numpy(), torch.argmax(torch.mean(preds_batch,dim=2), dim=1).cpu().numpy())
+        #balanced_acc = balanced_accuracy_score(labels_batch.cpu().nu,mpy(), torch.argmax(torch.mean(preds_batch,dim=2), dim=1).cpu().numpy())
         #self.log('val_balanced_acc', balanced_acc, prog_bar=True)
 
         return loss
@@ -91,8 +105,7 @@ class EEGClassifierModel(pl.LightningModule):
         
         all_preds = self.preds
         all_ys = self.true_labels
-        #ids = torch.cat(self.ids).cpu()
-        #stop_ids = torch.cat(self.stop_ids).cpu()
+
         all_is = self.all_is
 
         self.preds = []
@@ -106,21 +119,25 @@ class EEGClassifierModel(pl.LightningModule):
         all_preds = np.array(all_preds)
         all_ys = np.array(all_ys)
         all_is = [a.cpu() for a in all_is]
-        crop_preds = np.mean(all_preds, axis=(2)).argmax(axis=1)
-        #acc_cropwise = np.mean((crop_preds == all_ys))
+        if self.task_name == "age":
+            crop_preds = np.mean(all_preds, axis=(2)).mean(axis=1)
+            self.log('val_MAE', mean_absolute_error(all_ys, crop_preds), prog_bar=True)
+        else:
+            crop_preds = np.mean(all_preds, axis=(2)).argmax(axis=1)
+            self.log('val_acc',accuracy_score(all_ys, crop_preds), prog_bar=True)
+            self.log('val_acc_balanced',balanced_accuracy_score(all_ys, crop_preds), prog_bar=True)   
 
         trial_ys = all_ys[np.diff(torch.cat(all_is[0::3]), prepend=[np.inf]) != 1]
-        #print(all_preds.shape, torch.cat(all_is[0::3]).shape)
         preds_per_trial = trial_preds_from_window_preds(all_preds, torch.cat(all_is[0::3]), 
                                                         torch.cat(all_is[2::3]),)
         trial_preds = np.array([p.mean(axis=1).argmax(axis=0) for p in preds_per_trial])
-        #acc_trial = np.mean(trial_preds  == trial_ys)
 
-        self.log('val_acc_rec', accuracy_score(trial_ys, trial_preds), prog_bar=True)
-        self.log('val_acc',accuracy_score(all_ys, crop_preds), prog_bar=True)
-        self.log('val_acc_rec_balanced', balanced_accuracy_score(trial_ys, trial_preds), prog_bar=True)
-        self.log('val_acc_balanced',balanced_accuracy_score(all_ys, crop_preds), prog_bar=True)        
-            
+        if self.task_name != "age":
+            self.log('val_acc_rec', accuracy_score(trial_ys, trial_preds), prog_bar=True)
+
+            self.log('val_acc_rec_balanced', balanced_accuracy_score(trial_ys, trial_preds), prog_bar=True)
+        
+                
         """
         pred_labels = torch.unsqueeze(pred_labels, dim=1)
         #print(pred_labels.shape, ids.shape, stop_ids.shape)
