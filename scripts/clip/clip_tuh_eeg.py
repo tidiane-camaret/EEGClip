@@ -1,4 +1,5 @@
 import argparse
+import socket
 import numpy as np
 import torch 
 
@@ -39,14 +40,14 @@ def run_training(
         projected_emb_dim: int, # dimension of projected embeddings
         num_fc_layers: int, # number of fully connected layers
         model_name: str, # name of model to train
-        nailcluster: bool = True, # whether to use nailcluster 
         target_name: str = "report", # target to train EEGClip model on
         n_recordings_to_load: int = 2993, # number of recordings to load from TUH EEG dataset
-        n_epochs: int = 30, # number of epochs to train EEGClip model
+        n_epochs: int = 8, # number of epochs to train EEGClip model
         num_workers: int = 16, # number of workers to use for data loading
         batch_size: int = 64, # batch size to train EEGClip model
         
                     ):
+    nailcluster = (socket.gethostname() == "vs3-0") # check if we are on the nail cluster or on kislurm
     if nailcluster:
         results_dir = "/home/jovyan/EEGClip/results/"
         tuh_data_dir = "/home/jovyan/mne_data/TUH_PRE/tuh_eeg_abnormal_clip/v2.0.0/edf/"
@@ -142,7 +143,7 @@ def run_training(
     )
 
     ### PREPROCESSING NECESSARY IF USING TUH_PRE
-    if args.nailcluster:
+    if nailcluster:
         window_train_set.transform = lambda x: x*1e6
         window_valid_set.transform = lambda x: x*1e6
 
@@ -209,8 +210,6 @@ if __name__ == "__main__":
                         help='Learning rate to train EEGClip model.')
     parser.add_argument('--weight_decay', type=float, default=5e-4,
                         help='Weight decay to train EEGClip model.')
-    parser.add_argument('--nailcluster', action='store_true',
-                        help='Whether to run on the Nail cluster(paths differ)')
     parser.add_argument('--string_sampling', action='store_true',
                         help='Whether to use string sampling')
     parser.add_argument('--num_workers', type=int, default=16,
@@ -235,7 +234,6 @@ if __name__ == "__main__":
         lr=args.lr,
         weight_decay=args.weight_decay,
         string_sampling=args.string_sampling,
-        nailcluster=args.nailcluster,
         projected_emb_dim = 16,
         num_fc_layers = 1,
         model_name = model_name,
