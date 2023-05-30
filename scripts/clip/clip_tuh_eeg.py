@@ -30,67 +30,47 @@ import os
 This script is used to train the EEGClip model on the TUH EEG dataset.
 """
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Train EEGClip on TUH EEG dataset.')
-    parser.add_argument('--n_rec', type=int, default=50,
-                        help='Number of recordings to load from TUH EEG dataset.')
-    parser.add_argument('--n_epochs', type=int, default=20,
-                        help='Number of epochs to train EEGClip model.')
-    parser.add_argument('--batch_size', type=int, default=64,
-                        help='Batch size to train EEGClip model.')
-    parser.add_argument('--lr', type=float, default=5e-3,
-                        help='Learning rate to train EEGClip model.')
-    parser.add_argument('--weight_decay', type=float, default=5e-4,
-                        help='Weight decay to train EEGClip model.')
-    parser.add_argument('--nailcluster', action='store_true',
-                        help='Whether to run on the Nail cluster(paths differ)')
-    parser.add_argument('--string_sampling', action='store_true',
-                        help='Whether to use string sampling')
-    parser.add_argument('--num_workers', type=int, default=16,
-                        help='Number of workers to use for data loading.')
 
-    args = parser.parse_args()
 
-    # ## Hyperparameters
-
-    num_workers = args.num_workers
-
-    n_recordings_to_load = args.n_rec
-    target_name = "report" #('report', 'pathological', 'age', 'gender')
-    # TODO : find a way to use several targets
-    n_max_minutes = 3
-    sfreq = 100
-    n_minutes = 2
-    input_window_samples = 1200
-    projected_emb_dim = 16
-
-    n_epochs = args.n_epochs
-    batch_size = args.batch_size
-    lr = args.lr
-    weight_decay = args.weight_decay
-    string_sampling = args.string_sampling
-
-    if args.nailcluster:
+def run_training(
+        lr: float, # learning rate to train EEGClip model
+        weight_decay: float, # weight decay to train EEGClip model
+        string_sampling: bool, # whether to use string sampling
+        projected_emb_dim: int, # dimension of projected embeddings
+        num_fc_layers: int, # number of fully connected layers
+        model_name: str, # name of model to train
+        nailcluster: bool = True, # whether to use nailcluster 
+        target_name: str = "report", # target to train EEGClip model on
+        n_recordings_to_load: int = 2993, # number of recordings to load from TUH EEG dataset
+        n_epochs: int = 30, # number of epochs to train EEGClip model
+        num_workers: int = 16, # number of workers to use for data loading
+        batch_size: int = 64, # batch size to train EEGClip model
+        
+                    ):
+    if nailcluster:
         results_dir = "/home/jovyan/EEGClip/results/"
         tuh_data_dir = "/home/jovyan/mne_data/TUH_PRE/tuh_eeg_abnormal_clip/v2.0.0/edf/"
     else:
         results_dir = "/home/ndirt/dev/neuro_ai/EEGClip/results/"
         tuh_data_dir = "/data/datasets/TUH/EEG/tuh_eeg_abnormal/v2.0.0/edf/"
-        
-        # apparently this is needed to avoid a deadlock in the DataLoader
-        # TODO : check if this is still needed
-        # https://github.com/huggingface/transformers/issues/5486
-        os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
+
+    n_max_minutes = 3
+    sfreq = 100
+    n_minutes = 2
+    input_window_samples = 1200
     # TODO : use get_output_shape (requires to load the model first)
     n_preds_per_input = 519 #get_output_shape(eeg_classifier_model, n_chans, input_window_samples)[2]
-
-  
-    seed = 20210325  # random seed to make results reproducible
-
+    
     cuda = torch.cuda.is_available()
+    seed = 20210325  # random seed to make results reproducible    
     set_random_seeds(seed=seed, cuda=cuda)
     torch.backends.cudnn.benchmark = True
+
+    # apparently this is needed to avoid a deadlock in the DataLoader
+    # TODO : check if this is still needed
+    # https://github.com/huggingface/transformers/issues/5486
+    os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
     # ## Load data
     dataset = TUHAbnormal(
@@ -121,7 +101,7 @@ if __name__ == "__main__":
         Preprocessor(fn='resample', sfreq=sfreq),
     ]
     # Preprocess the data
-    if not args.nailcluster:
+    if not nailcluster:
         preprocess(dataset, preprocessors)
 
     # ## Data Splitting
@@ -205,14 +185,58 @@ if __name__ == "__main__":
                          lr = lr, 
                          weight_decay=weight_decay,
                          string_sampling = string_sampling,
-                         projected_emb_dim = projected_emb_dim
+                         projected_emb_dim = projected_emb_dim,
+                         num_fc_layers = num_fc_layers,
                          ),
                 train_loader, 
                 valid_loader
             )
     
-    # ## Save model
-    model_name = "EEGClip_" + \
-        "n_epochs_" + str(n_epochs)
+
     
     trainer.save_checkpoint(results_dir + '/models/' + model_name + '.ckpt')
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description='Train EEGClip on TUH EEG dataset.')
+    parser.add_argument('--n_rec', type=int, default=50,
+                        help='Number of recordings to load from TUH EEG dataset.')
+    parser.add_argument('--n_epochs', type=int, default=20,
+                        help='Number of epochs to train EEGClip model.')
+    parser.add_argument('--batch_size', type=int, default=64,
+                        help='Batch size to train EEGClip model.')
+    parser.add_argument('--lr', type=float, default=5e-3,
+                        help='Learning rate to train EEGClip model.')
+    parser.add_argument('--weight_decay', type=float, default=5e-4,
+                        help='Weight decay to train EEGClip model.')
+    parser.add_argument('--nailcluster', action='store_true',
+                        help='Whether to run on the Nail cluster(paths differ)')
+    parser.add_argument('--string_sampling', action='store_true',
+                        help='Whether to use string sampling')
+    parser.add_argument('--num_workers', type=int, default=16,
+                        help='Number of workers to use for data loading.')
+
+    args = parser.parse_args()
+
+
+    target_name = "report" #('report', 'pathological', 'age', 'gender')
+    # TODO : find a way to use several targets
+
+        # ## Save model
+    model_name = "EEGClip_" + \
+        "n_epochs_" + str(args.n_epochs)
+    
+    run_training(
+        target_name=target_name,
+        n_recordings_to_load=args.n_rec,
+        n_epochs=args.n_epochs,
+        num_workers=args.num_workers,
+        batch_size=args.batch_size,
+        lr=args.lr,
+        weight_decay=args.weight_decay,
+        string_sampling=args.string_sampling,
+        nailcluster=args.nailcluster,
+        projected_emb_dim = 16,
+        num_fc_layers = 1,
+        model_name = model_name,
+    )

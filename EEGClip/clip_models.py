@@ -29,7 +29,7 @@ class CFG:
     projected_emb_dim = 256
     temperature = 1.0
     classifiers_dict = {
-        'knn': KNeighborsClassifier(n_neighbors=10),
+        #'knn': KNeighborsClassifier(n_neighbors=10),
         'logreg': LogisticRegression(random_state=0, max_iter=1000)
     }
     max_length_tokens = 512 
