@@ -14,8 +14,10 @@ echo "Started at $(date)";
 echo "Running job $SLURM_JOB_NAME using $SLURM_JOB_CPUS_PER_NODE cpus per node with given JID $SLURM_JOB_ID on queue $SLURM_JOB_PARTITION";
  
 # Job to perform, here for example you would call your pythnfile that runs your code
-python3 -m scripts.clip.clip_tuh_eeg --n_recordings_to_load 2993 --string_sampling
- 
+## run training script
+# python3 -m scripts.clip.clip_tuh_eeg --n_recordings_to_load 2993 --string_sampling
+## run sweep
+wandb agent zy9izewm
 # Print some Information about the end-time to STDOUT
 echo "DONE";
 echo "Finished at $(date)";
