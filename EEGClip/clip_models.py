@@ -16,6 +16,7 @@ from braindecode.models import Deep4Net
 from braindecode.training.scoring import trial_preds_from_window_preds
 from braindecode.models.util import to_dense_prediction_model
 
+from sentence_transformers import SentenceTransformer
 from transformers import AutoTokenizer, AutoModel, AutoModelForCausalLM, AutoConfig
 
 import pytorch_lightning as pl
@@ -44,11 +45,13 @@ class TextEncoder(nn.Module):
                  string_sampling,
                 ):
         super().__init__()
+        '''
         if text_encoder_pretrained:
             self.model = AutoModel.from_pretrained(text_encoder_name, output_hidden_states=True)
         else:
             self.model = AutoModel(config=AutoConfig())
-
+        '''
+        self.model = SentenceTransformer("hkunlp/instructor-xl")
         for param in self.model.parameters():
             param.requires_grad = text_encoder_trainable
         
@@ -78,7 +81,14 @@ class TextEncoder(nn.Module):
                                    max_length=CFG.max_length_tokens
                                    ).input_ids.to(CFG.device)
         outputs = self.model(input_ids)
-        return outputs.last_hidden_state[:,0,:]
+         
+        embs = outputs.last_hidden_state[:,0,:]
+        
+
+
+        
+        return embs
+
     
 class EEGEncoder(nn.Module):
     def __init__(self, 
