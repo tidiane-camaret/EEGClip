@@ -170,7 +170,10 @@ def run_training(
     n_classes = 16 # size of the last layer of the EEG decoder
     n_chans = 21 # number of channels in the EEG data
 
-    wandb_logger = WandbLogger(project="EEGClip",save_dir = results_dir + '/wandb',log_model=True)
+    wandb_logger = WandbLogger(project="EEGClip",
+                               save_dir = results_dir + '/wandb',
+                               log_model=True
+                               )
 
     # ## Training
     trainer = Trainer(
@@ -195,7 +198,7 @@ def run_training(
     
 
     
-    trainer.save_checkpoint(results_dir + '/models/' + model_name + '.ckpt')
+    #trainer.save_checkpoint(results_dir + '/models/' + model_name + '.ckpt')
 
 
 if __name__ == "__main__":

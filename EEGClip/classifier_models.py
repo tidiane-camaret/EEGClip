@@ -5,6 +5,9 @@ import pytorch_lightning as pl
 from sklearn.metrics import balanced_accuracy_score, accuracy_score, mean_absolute_error
 from braindecode.training.scoring import trial_preds_from_window_preds
 
+
+medication_list = ["keppra", "dilantin", "depakote"]
+
 class EEGClassifierModel(pl.LightningModule):
     """Model for classification for the TUH dataset.
     Can use pretrained encoders.
@@ -61,6 +64,7 @@ class EEGClassifierModel(pl.LightningModule):
 
     def forward(self, batch):
         eeg_batch, labels_batch, id_batch = batch
+
         eeg_batch = self.encoder(eeg_batch) #shape [B, Enc_size, N_Preds]
         eeg_batch = eeg_batch.transpose(1,2) #shape [B, N_Preds, Enc_size] # can pass to the classifier
 
@@ -69,7 +73,18 @@ class EEGClassifierModel(pl.LightningModule):
         eeg_batch = eeg_batch.transpose(1,2) # shape [B, 2, N_Preds] # can be later used  
         preds_batch = eeg_batch 
 
-        labels_batch = labels_batch.float() if self.task_name == "age" else labels_batch.long()
+        if self.task_name == "age":
+            labels_batch = labels_batch.float()
+        elif self.task_name == "age_50":
+            labels_batch = torch.Tensor([0 if l<=50 else 1 for l in labels_batch]).long().to(self.device)
+        elif self.task_name == "epilep":
+            labels_batch = torch.Tensor([0 if "epilep" not in l.lower() or "no epilep" in l.lower() else 1 for l in labels_batch]).long().to(self.device)
+        elif self.task_name == "seizure":
+            labels_batch = torch.Tensor([0 if "seizure" not in l.lower() or "no seizure" in l.lower() else 1 for l in labels_batch]).long().to(self.device)
+        elif self.task_name == "medication":
+            labels_batch = torch.Tensor([1 if any([med in l.lower() for med in medication_list]) else 0 for l in labels_batch]).long().to(self.device)
+        else: 
+            labels_batch = labels_batch.long()
 
         return preds_batch, labels_batch, id_batch
     
@@ -87,6 +102,7 @@ class EEGClassifierModel(pl.LightningModule):
         eeg_batch, labels_batch, id_batch = batch
         preds_batch, labels_batch, _ = self.forward(batch)
 
+        
         self.preds.extend(preds_batch.cpu().numpy())
         self.true_labels.extend(labels_batch.cpu().numpy())
         self.ids.append(id_batch[0])

@@ -368,3 +368,11 @@ class EEGClipModel(pl.LightningModule):
         optimizer = torch.optim.AdamW(self.parameters(), lr = self.lr, weight_decay=self.weight_decay)
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max = self.trainer.max_epochs - 1)
         return [optimizer], [scheduler]
+
+def on_save_checkpoint(checkpoint):
+    for key in list(checkpoint['state_dict'].keys()):
+        if "text_encoder" in key:
+            print('deleting ', key)
+            del checkpoint['state_dict'][key]
+    # pop the backbone here using custom logic
+    del checkpoint['state_dict'][backbone_keys]

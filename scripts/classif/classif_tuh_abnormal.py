@@ -1,4 +1,5 @@
 import argparse
+import socket
 import pandas as pd
 import numpy as np
 import torch 
@@ -36,9 +37,10 @@ gender
 report-based (medication, diagnosis ...)
 
 """
+MODEL_PATH = '/home/jovyan/EEGClip/results/wandb/EEGClip/df7e5wqd/checkpoints/epoch=7-step=48696.ckpt'
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Train EEGClip on TUH EEG dataset.')
+    parser = argparse.ArgumentParser(description='Train an EEG classifier on the TUH EEG dataset.')
     parser.add_argument('--task_name', type=str, default="pathological",
                         help='classification task name (pathological, age, gender, report-related tasks ....')    
     parser.add_argument('--n_rec', type=int, default=300,
@@ -51,8 +53,8 @@ if __name__ == "__main__":
                         help='Learning rate to train EEGClip model.')
     parser.add_argument('--weight_decay', type=float, default=5e-4,
                         help='Weight decay to train EEGClip model.')
-    parser.add_argument('--nailcluster', action='store_true',
-                        help='Whether to run on the Nail cluster(paths differ)')
+    #parser.add_argument('--nailcluster', action='store_true',
+    #                    help='Whether to run on the Nail cluster(paths differ)')
     parser.add_argument('--num_workers', type=int, default=16,
                         help='Number of workers to use for data loading.')
     parser.add_argument('--weights', type=str, default="eegclip",
@@ -66,7 +68,12 @@ if __name__ == "__main__":
 
     n_recordings_to_load = args.n_rec
     task_name = args.task_name #('pathological', 'age', 'gender', "epilep", "keppra", "dilantin", "seizure")
-    target_name = task_name if task_name in ['pathological', 'age', 'gender'] else "report"
+    if task_name in ['pathological', 'age', 'gender']: 
+        target_name = task_name 
+    elif task_name == "age_50":
+        target_name = "age"
+    else:
+        target_name = "report"
     mapping = {'M': 0, 'F': 1} if target_name =="gender" else None
     # TODO : find a way to use several targets
     n_max_minutes = 3
@@ -78,13 +85,15 @@ if __name__ == "__main__":
     batch_size = args.batch_size
     lr = args.lr
     weight_decay = args.weight_decay
-    nailcluster = args.nailcluster
+    nailcluster = (socket.gethostname() == "vs3-0")
     weights = args.weights
     freeze_encoder = args.freeze_encoder
+    num_workers = args.num_workers
+    
 
     if nailcluster:
         results_dir = "/home/jovyan/EEGClip/results/"
-        tuh_data_dir = "/home/jovyan/mne_data/TUH_PRE/tuh_eeg_abnormal/v2.0.0/edf/"
+        tuh_data_dir = "/home/jovyan/mne_data/TUH_PRE/tuh_eeg_abnormal_clip/v2.0.0/edf/"
     else:
         results_dir = "/home/ndirt/dev/neuro_ai/EEGClip/results/"
         tuh_data_dir = "/data/datasets/TUH/EEG/tuh_eeg_abnormal/v2.0.0/edf/"
@@ -105,7 +114,7 @@ if __name__ == "__main__":
         recording_ids=range(n_recordings_to_load),  # loads the n chronologically first recordings
         target_name=target_name,  # age, gender, pathology
         preload=False,
-        add_physician_reports=False,
+        add_physician_reports=True,
         n_jobs=1)
     
     # ## Preprocessing
@@ -205,10 +214,15 @@ if __name__ == "__main__":
 
     # ## Create model
     if weights == "eegclip":
-            model_name = "EEGClip_" + "n_epochs_" + "5"
-            eegclipmodel = EEGClipModel.load_from_checkpoint((results_dir + '/models/' + model_name + '.ckpt'))
+            eegclipmodel = EEGClipModel.load_from_checkpoint(MODEL_PATH)
             EEGEncoder = torch.nn.Sequential(eegclipmodel.eeg_encoder,eegclipmodel.eeg_projection)
-
+            # get size of the last layer
+            projectionhead = list(EEGEncoder.children())[-1]
+            layer_sizes = []
+            for layer in projectionhead.children():
+                if hasattr(layer, 'out_features'):
+                    layer_sizes.append(layer.out_features)
+            encoder_output_dim = layer_sizes[-1]
     elif weights == "random":
         EEGEncoder = Deep4Net(
             in_chans=n_chans,
@@ -220,23 +234,26 @@ if __name__ == "__main__":
 
         to_dense_prediction_model(EEGEncoder)
 
-
         
             # ## Run Training
     wandb_logger = WandbLogger(project="EEGClip_classif",
                         save_dir = results_dir + '/wandb',
-                        log_model=True,)
-    wandb_logger.experiment.config.update({"target_name": target_name})
+                        log_model=False,
+                        )
 
     wandb_logger.experiment.config.update({"freeze_encoder": freeze_encoder,
-                                            "weights": weights},
-                                            allow_val_change=True)
+                                            "weights": weights,
+                                            "task_name": task_name,
+                                            "target_name": target_name},
+                                            #allow_val_change=True
+                                            )
     trainer = Trainer(
                 default_root_dir=results_dir + '/models',
                 devices=1,
                 accelerator="gpu",
                 max_epochs=n_epochs,
                 logger=wandb_logger,
+                #checkpoint_callback=False # do not save model
             )
     trainer.fit(
         EEGClassifierModel(

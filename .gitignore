@@ -144,3 +144,4 @@ results/wandb
 .vscode/settings.json
 scripts/cluster/logs
 scripts/hpo/wandb/
+.ckpt
