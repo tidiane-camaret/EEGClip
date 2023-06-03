@@ -2,6 +2,8 @@ import random
 import numpy as np
 import pandas as pd
 import re
+import copy
+import pickle 
 
 from sklearn.model_selection import train_test_split
 from sklearn.neighbors import KNeighborsClassifier
@@ -20,6 +22,8 @@ from braindecode.models.util import to_dense_prediction_model
 from transformers import AutoTokenizer, AutoModel, AutoModelForCausalLM, AutoConfig
 
 import pytorch_lightning as pl
+
+
 
 class CFG:
     """Configuration class for the EEGClip model
@@ -43,7 +47,8 @@ class TextEncoder(nn.Module):
                  string_sampling,
                 ):
         super().__init__()
-        
+        self.string_sampling = string_sampling
+        """
         if text_encoder_pretrained:
             self.model = AutoModel.from_pretrained(text_encoder_name, output_hidden_states=True)
         else:
@@ -54,15 +59,28 @@ class TextEncoder(nn.Module):
             param.requires_grad = text_encoder_trainable
         
         self.tokenizer = AutoTokenizer.from_pretrained(text_encoder_name)
-        self.string_sampling = string_sampling
+        
         self.target_token_idx = 0
+        """
+        report_df_path = '/home/jovyan/EEGClip/scripts/text_analysis/report_df_embs.csv'
+        report_df = pd.read_csv(report_df_path)
+        embs_name = "embs_instructor"
+        for r in range(len(report_df)):
+            re = copy.copy(report_df[embs_name][r])
+            # convert the string to array
+            re = re.replace('[', '')
+            re = re.replace(']', '')
+            re = re.replace(',', '')
+            re = re.split()
+            re = [float(i) for i in re]
+            report_df[embs_name][r] = re
 
-        report_df_path = '/home/jovyan/EEGClip/scripts/text_analysis/report_df.csv'
-        self.report_df = pd.read_csv(report_df_path)
+        self.report_df = report_df
 
 
     def forward(self, string_batch):
         string_batch = list(string_batch)
+
         if self.string_sampling:
             for i, string in enumerate(string_batch):
                 # look for the positions of \n occurences
@@ -75,14 +93,19 @@ class TextEncoder(nn.Module):
                     end = random.choice(newlines)
                 # sample a random substring
                 string_batch[i] = string[start:end]
+
         lookup_strings = True
+
         if lookup_strings :
             embs = []
             for s in string_batch:
-                emb = self.report_df.loc[self.report_df['report'] == s, 'embs_instructor'].item()
-                print(emb)
+                lookup = self.report_df.loc[self.report_df['report'] == s, 'embs_instructor']
+                
+                emb = lookup.item()
+                
+                
                 embs.append(emb)
-            torch.Tensor(embs)
+            embs = torch.Tensor(embs).to(CFG.device)
                 
         else:
             input_ids = self.tokenizer(string_batch, 
@@ -281,9 +304,11 @@ class EEGClipModel(pl.LightningModule):
         self.labels_valid = []
         self.ids_valid = []
 
+        self.report_list = []
+
     def forward(self, batch):
         eeg_batch, string_batch, id_batch = batch
-
+        self.report_list.extend(list(string_batch))
         #print("CALCULATING EEG FEATURES")
         eeg_features = self.eeg_encoder(eeg_batch)     
         text_features = self.text_encoder(string_batch)
@@ -343,6 +368,9 @@ class EEGClipModel(pl.LightningModule):
         return loss
     
     def on_validation_epoch_end(self):
+        report_list = list(set(self.report_list))
+        with open('parrot.pkl', 'wb') as f:
+           pickle.dump(report_list, f)
 
         features_valid = torch.cat(self.features_valid).cpu()
         ids_valid = torch.cat(self.ids_valid).cpu()

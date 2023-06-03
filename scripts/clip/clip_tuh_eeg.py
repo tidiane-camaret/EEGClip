@@ -203,7 +203,7 @@ def run_training(
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Train EEGClip on TUH EEG dataset.')
-    parser.add_argument('--n_rec', type=int, default=50,
+    parser.add_argument('--n_rec', type=int, default=2993,
                         help='Number of recordings to load from TUH EEG dataset.')
     parser.add_argument('--n_epochs', type=int, default=20,
                         help='Number of epochs to train EEGClip model.')
@@ -237,7 +237,7 @@ if __name__ == "__main__":
         lr=args.lr,
         weight_decay=args.weight_decay,
         string_sampling=args.string_sampling,
-        projected_emb_dim = 16,
-        num_fc_layers = 1,
+        projected_emb_dim = 128,
+        num_fc_layers = 3,
         model_name = model_name,
     )
