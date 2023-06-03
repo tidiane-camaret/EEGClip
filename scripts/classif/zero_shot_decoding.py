@@ -3,6 +3,11 @@ import socket
 import pandas as pd
 import numpy as np
 import torch 
+import tqdm
+import matplotlib.pyplot as plt
+from scipy.spatial import distance
+from sklearn.metrics import accuracy_score, balanced_accuracy_score
+from sklearn.manifold import TSNE
 
 from braindecode.datasets.base import BaseConcatDataset
 from braindecode.datasets import TUHAbnormal
@@ -14,6 +19,8 @@ from braindecode.preprocessing import preprocess, Preprocessor
 from braindecode.datasets.base import BaseConcatDataset
 from braindecode.preprocessing.windowers import create_fixed_length_windows
 from braindecode.models import Deep4Net
+
+from transformers import AutoTokenizer, AutoModel
 
 from pytorch_lightning import Trainer
 from pytorch_lightning.loggers import WandbLogger
@@ -39,6 +46,12 @@ report-based (medication, diagnosis ...)
 """
 MODEL_PATH = '/home/jovyan/EEGClip/results/wandb/EEGClip/df7e5wqd/checkpoints/epoch=7-step=48696.ckpt'
 
+instructor_model = AutoModel.from_pretrained("hkunlp/instructor-xl")
+instructor_tokenizer = AutoTokenizer.from_pretrained("hkunlp/instructor-xl")
+
+
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Train an EEG classifier on the TUH EEG dataset.')
     parser.add_argument('--task_name', type=str, default="pathological",
@@ -49,18 +62,11 @@ if __name__ == "__main__":
                         help='Number of epochs to train EEGClip model.')
     parser.add_argument('--batch_size', type=int, default=64,
                         help='Batch size to train EEGClip model.')
-    parser.add_argument('--lr', type=float, default=5e-3,
-                        help='Learning rate to train EEGClip model.')
-    parser.add_argument('--weight_decay', type=float, default=5e-4,
-                        help='Weight decay to train EEGClip model.')
     #parser.add_argument('--nailcluster', action='store_true',
     #                    help='Whether to run on the Nail cluster(paths differ)')
     parser.add_argument('--num_workers', type=int, default=16,
                         help='Number of workers to use for data loading.')
-    parser.add_argument('--weights', type=str, default="eegclip",
-                        help='weights from pretrained model, or random')    
-    parser.add_argument('--freeze_encoder', action='store_true',
-                        help='Whether to freeze encoder during training')
+
 
     args = parser.parse_args()
 
@@ -213,57 +219,68 @@ if __name__ == "__main__":
     n_chans = 21 # number of channels in the EEG data
 
     # ## Create model
-    if weights == "eegclip":
-            eegclipmodel = EEGClipModel.load_from_checkpoint(MODEL_PATH)
-            EEGEncoder = torch.nn.Sequential(eegclipmodel.eeg_encoder,eegclipmodel.eeg_projection)
-            # get size of the last layer
-            projectionhead = list(EEGEncoder.children())[-1]
-            layer_sizes = []
-            for layer in projectionhead.children():
-                if hasattr(layer, 'out_features'):
-                    layer_sizes.append(layer.out_features)
-            encoder_output_dim = layer_sizes[-1]
-    elif weights == "random":
-        EEGEncoder = Deep4Net(
-            in_chans=n_chans,
-            n_classes=encoder_output_dim, 
-            input_window_samples=None,
-            final_conv_length=2,
-            stride_before_pool=True,
-            )
 
-        to_dense_prediction_model(EEGEncoder)
+    eegclipmodel = EEGClipModel.load_from_checkpoint(MODEL_PATH)
+    EEGEncoder = torch.nn.Sequential(eegclipmodel.eeg_encoder,eegclipmodel.eeg_projection)
+    # get size of the last layer
+    
+    def sentence_embedder(sentence):
+        """
+        desc_tokenized = bert_tokenizer(sentence, return_tensors="pt", max_length=512, truncation=True, padding='max_length')
+        outputs = bert_model(**desc_tokenized)
+        emb = outputs.to_tuple()[0][0][0].detach().numpy().tolist()
 
-        
-            # ## Run Training
-    wandb_logger = WandbLogger(project="EEGClip_classif",
-                        save_dir = results_dir + '/wandb',
-                        log_model=False,
-                        )
+        instruction = "Represent the medical report: "
+        emb = instructor_model.encode([[instruction,sentence]])[0]
+        """
+        desc_tokenized = instructor_tokenizer(sentence, return_tensors="pt", max_length=512, truncation=True, padding='max_length')
+        outputs = instructor_model.encoder(**desc_tokenized)
+        emb = outputs.to_tuple()[0][0][0]
+        emb = eegclipmodel.text_projection(emb)
+        emb = emb.detach().cpu().numpy()        
+        return emb
 
-    wandb_logger.experiment.config.update({"freeze_encoder": freeze_encoder,
-                                            "weights": weights,
-                                            "task_name": task_name,
-                                            "target_name": target_name},
-                                            #allow_val_change=True
-                                            )
-    trainer = Trainer(
-                default_root_dir=results_dir + '/models',
-                devices=1,
-                accelerator="gpu",
-                max_epochs=n_epochs,
-                logger=wandb_logger,
-                #checkpoint_callback=False # do not save model
-            )
-    trainer.fit(
-        EEGClassifierModel(
-                  EEGEncoder, 
-                  task_name = task_name,
-                  freeze_encoder=freeze_encoder,
-                  lr = lr,
-                  weight_decay= weight_decay,
-                  encoder_output_dim = encoder_output_dim,
-        ),
-        train_loader,
-        valid_loader,
-    )
+    field = "pathological"
+    s0 = "This is a normal recording."
+    s1 = "This is an abnormal recording."
+
+    s0_embed = sentence_embedder(s0)
+    s1_embed = sentence_embedder(s1)
+    ## get embeddings for the validation set using the EEG encoder
+
+    for param in EEGEncoder.parameters():
+        param.requires_grad = False
+
+    # iterate over the validation set and get the embeddings
+    embeddings = []
+    labels = []
+    for batch in tqdm(valid_loader):
+        eeg, label, id = batch
+        eeg = eeg.cuda()
+        eeg = EEGEncoder(eeg)
+        embeddings.append(eeg.detach().cpu().numpy())
+        labels.append(label)
+    
+    embeddings = np.concatenate(embeddings)
+    labels = np.concatenate(labels)
+
+    ## plot the embeddings in 2D using TSNE
+    features2d = TSNE(n_components=2).fit_transform(embeddings)
+    
+    plt.scatter([a[0] for a in features2d],
+                [a[1] for a in features2d],
+                c=labels)
+
+    distance_classifier = []
+    for r in embeddings:
+        d0 = distance.cosine(r, s0_embed)
+        d1 = distance.cosine(r, s1_embed)
+        if d0 < d1:
+            distance_classifier.append(0)
+        else:
+            distance_classifier.append(1)
+
+    print("label balance :", np.mean(distance_classifier))
+
+    # compare to the actual labels
+    print("Accuracy: ", balanced_accuracy_score(labels, distance_classifier))

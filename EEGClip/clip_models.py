@@ -16,7 +16,7 @@ from braindecode.models import Deep4Net
 from braindecode.training.scoring import trial_preds_from_window_preds
 from braindecode.models.util import to_dense_prediction_model
 
-from sentence_transformers import SentenceTransformer
+#from sentence_transformers import SentenceTransformer
 from transformers import AutoTokenizer, AutoModel, AutoModelForCausalLM, AutoConfig
 
 import pytorch_lightning as pl
@@ -34,8 +34,6 @@ class CFG:
         'logreg': LogisticRegression(random_state=0, max_iter=1000)
     }
     max_length_tokens = 512 
-    report_df_path = '/home/jovyan/EEGClip/scripts/text_analysis/report_df.csv'
-    report_df = pd.read_csv(report_df_path)
 
 class TextEncoder(nn.Module):
     def __init__(self, 
@@ -59,6 +57,10 @@ class TextEncoder(nn.Module):
         self.string_sampling = string_sampling
         self.target_token_idx = 0
 
+        report_df_path = '/home/jovyan/EEGClip/scripts/text_analysis/report_df.csv'
+        self.report_df = pd.read_csv(report_df_path)
+
+
     def forward(self, string_batch):
         string_batch = list(string_batch)
         if self.string_sampling:
@@ -77,7 +79,7 @@ class TextEncoder(nn.Module):
         if lookup_strings :
             embs = []
             for s in string_batch:
-                emb = report_df.loc[report_df['report'] == s, 'embs_instructor'].item()
+                emb = self.report_df.loc[self.report_df['report'] == s, 'embs_instructor'].item()
                 print(emb)
                 embs.append(emb)
             torch.Tensor(embs)
@@ -388,6 +390,7 @@ class EEGClipModel(pl.LightningModule):
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max = self.trainer.max_epochs - 1)
         return [optimizer], [scheduler]
 
+"""
 def on_save_checkpoint(checkpoint):
     for key in list(checkpoint['state_dict'].keys()):
         if "text_encoder" in key:
@@ -395,3 +398,5 @@ def on_save_checkpoint(checkpoint):
             del checkpoint['state_dict'][key]
     # pop the backbone here using custom logic
     del checkpoint['state_dict'][backbone_keys]
+
+"""
