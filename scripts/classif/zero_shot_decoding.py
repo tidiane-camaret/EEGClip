@@ -54,7 +54,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Train an EEG classifier on the TUH EEG dataset.')
     parser.add_argument('--task_name', type=str, default="pathological",
                         help='classification task name (pathological, age, gender, report-related tasks ....')    
-    parser.add_argument('--n_rec', type=int, default=300,
+    parser.add_argument('--n_rec', type=int, default=2993,
                         help='Number of recordings to load from TUH EEG dataset.')
     parser.add_argument('--n_epochs', type=int, default=10,
                         help='Number of epochs to train EEGClip model.')

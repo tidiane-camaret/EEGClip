@@ -42,13 +42,19 @@ class EEGClassifierModel(pl.LightningModule):
 
         if self.task_name == "age":
             self.classifier = torch.nn.Sequential(
-            torch.nn.Linear(encoder_output_dim, 16),
+            torch.nn.ReLU(),
+            torch.nn.Linear(encoder_output_dim, 64),
+            torch.nn.ReLU(),
+            torch.nn.Linear(64, 16),
             torch.nn.ReLU(),
             torch.nn.Linear(16, 1)
             )
         else : 
             self.classifier = torch.nn.Sequential(
-            torch.nn.Linear(encoder_output_dim, 16),
+            torch.nn.ReLU(),
+            torch.nn.Linear(encoder_output_dim, 64),
+            torch.nn.ReLU(),
+            torch.nn.Linear(64, 16),
             torch.nn.ReLU(),
             torch.nn.Linear(16, self.n_classes)
             )
