@@ -34,8 +34,8 @@ class CFG:
         'logreg': LogisticRegression(random_state=0, max_iter=1000)
     }
     max_length_tokens = 512 
-    #info_df_path = 'TUH_Abnormal_EEG_rep.csv'
-    #info_df = pd.read_csv(info_df_path)
+    report_df_path = '/home/jovyan/EEGClip/scripts/text_analysis/report_df.csv'
+    report_df = pd.read_csv(report_df_path)
 
 class TextEncoder(nn.Module):
     def __init__(self, 
@@ -45,13 +45,13 @@ class TextEncoder(nn.Module):
                  string_sampling,
                 ):
         super().__init__()
-        '''
+        
         if text_encoder_pretrained:
             self.model = AutoModel.from_pretrained(text_encoder_name, output_hidden_states=True)
         else:
             self.model = AutoModel(config=AutoConfig())
-        '''
-        self.model = SentenceTransformer("hkunlp/instructor-xl")
+        
+        #self.model = SentenceTransformer("hkunlp/instructor-xl")
         for param in self.model.parameters():
             param.requires_grad = text_encoder_trainable
         
@@ -73,16 +73,25 @@ class TextEncoder(nn.Module):
                     end = random.choice(newlines)
                 # sample a random substring
                 string_batch[i] = string[start:end]
-
-        input_ids = self.tokenizer(string_batch, 
-                                   padding=True, 
-                                   truncation=True, 
-                                   return_tensors="pt",
-                                   max_length=CFG.max_length_tokens
-                                   ).input_ids.to(CFG.device)
-        outputs = self.model(input_ids)
-         
-        embs = outputs.last_hidden_state[:,0,:]
+        lookup_strings = True
+        if lookup_strings :
+            embs = []
+            for s in string_batch:
+                emb = report_df.loc[report_df['report'] == s, 'embs_instructor'].item()
+                print(emb)
+                embs.append(emb)
+            torch.Tensor(embs)
+                
+        else:
+            input_ids = self.tokenizer(string_batch, 
+                                    padding=True, 
+                                    truncation=True, 
+                                    return_tensors="pt",
+                                    max_length=CFG.max_length_tokens
+                                    ).input_ids.to(CFG.device)
+            outputs = self.model(input_ids)
+            
+            embs = outputs.last_hidden_state[:,0,:]
         
 
 
