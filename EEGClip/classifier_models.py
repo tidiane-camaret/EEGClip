@@ -81,8 +81,8 @@ class EEGClassifierModel(pl.LightningModule):
 
         if self.task_name == "age":
             labels_batch = labels_batch.float()
-        elif self.task_name == "age_50":
-            labels_batch = torch.Tensor([0 if l<=50 else 1 for l in labels_batch]).long().to(self.device)
+        elif self.task_name == "under_50":
+            labels_batch = torch.Tensor([0 if l>=50 else 1 for l in labels_batch]).long().to(self.device)
         elif self.task_name == "epilep":
             labels_batch = torch.Tensor([0 if "epilep" not in l.lower() or "no epilep" in l.lower() else 1 for l in labels_batch]).long().to(self.device)
         elif self.task_name == "seizure":
