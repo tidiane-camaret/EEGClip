@@ -41,17 +41,10 @@ class EEGClassifierModel(pl.LightningModule):
                 param.requires_grad = False
 
         if self.task_name == "age":
-            self.classifier = torch.nn.Sequential(
-            torch.nn.ReLU(),
-            torch.nn.Linear(encoder_output_dim, 64),
-            torch.nn.ReLU(),
-            torch.nn.Linear(64, 16),
-            torch.nn.ReLU(),
-            torch.nn.Linear(16, 1)
-            )
-        else : 
-            self.classifier = torch.nn.Sequential(
-            torch.nn.ReLU(),
+            self.n_classes = 1
+
+        self.classifier = torch.nn.Sequential(
+            #torch.nn.ReLU(), # kills performance for random weights but not for pretrained #TODO see why
             torch.nn.Linear(encoder_output_dim, 64),
             torch.nn.ReLU(),
             torch.nn.Linear(64, 16),

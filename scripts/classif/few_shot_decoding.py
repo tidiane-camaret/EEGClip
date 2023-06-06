@@ -39,7 +39,10 @@ report-based (medication, diagnosis ...)
 
 """
 #MODEL_PATH = '/home/jovyan/EEGClip/results/wandb/EEGClip/df7e5wqd/checkpoints/epoch=7-step=48696.ckpt'
-MODEL_PATH = "/home/jovyan/EEGClip/results/wandb/EEGClip/1lgwz214/checkpoints/epoch=6-step=42609.ckpt"
+MODEL_PATH = {"eegclip":"/home/jovyan/EEGClip/results/wandb/EEGClip/1lgwz214/checkpoints/epoch=6-step=42609.ckpt",
+              "pathological_task" : "/home/jovyan/EEGClip/results/wandb/EEGClip_classif/1oqtbdtr/checkpoints/epoch=9-step=7600.ckpt",
+              "under_50_task" : "/home/jovyan/EEGClip/results/wandb/EEGClip_classif/3d1yl4md/checkpoints/epoch=9-step=7600.ckpt"
+            }
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Train an EEG classifier on the TUH EEG dataset.')
     parser.add_argument('--task_name', type=str, default="pathological",
@@ -233,20 +236,22 @@ if __name__ == "__main__":
     print(len(valid_loader.dataset))
     
 
-    encoder_output_dim = 16 # size of the last layer of the EEG decoder
+    encoder_output_dim = 64 # size of the last layer of the EEG decoder
     n_chans = 21 # number of channels in the EEG data
 
     # ## Create model
     if weights == "eegclip":
-            eegclipmodel = EEGClipModel.load_from_checkpoint(MODEL_PATH)
+            eegclipmodel = EEGClipModel.load_from_checkpoint(MODEL_PATH["eegclip"])
             EEGEncoder = torch.nn.Sequential(eegclipmodel.eeg_encoder,eegclipmodel.eeg_projection)
-            # get size of the last layer
+            
+            """# classifier should have the same shape everywhere for fair comparison
             projectionhead = list(EEGEncoder.children())[-1]
             layer_sizes = []
             for layer in projectionhead.children():
                 if hasattr(layer, 'out_features'):
                     layer_sizes.append(layer.out_features)
             encoder_output_dim = layer_sizes[-1]
+            """
     elif weights == "random":
         EEGEncoder = Deep4Net(
             in_chans=n_chans,
@@ -258,11 +263,32 @@ if __name__ == "__main__":
 
         to_dense_prediction_model(EEGEncoder)
 
-        
+    else:
+        EEGEncoder = Deep4Net(
+            in_chans=n_chans,
+            n_classes=encoder_output_dim, 
+            input_window_samples=None,
+            final_conv_length=2,
+            stride_before_pool=True,
+            )
+
+        to_dense_prediction_model(EEGEncoder)
+        eegclassifiermodel = EEGClassifierModel.load_from_checkpoint(MODEL_PATH[weights],EEGEncoder=EEGEncoder)
+
+        EEGEncoder = eegclassifiermodel.eeg_encoder
+        # get size of the last layer
+        projectionhead = list(EEGEncoder.children())[-1]
+        layer_sizes = []
+        for layer in projectionhead.children():
+            if hasattr(layer, 'out_features'):
+                layer_sizes.append(layer.out_features)
+        encoder_output_dim = layer_sizes[-1]
+
+    print('encoder_output_dim', encoder_output_dim)
             # ## Run Training
     wandb_logger = WandbLogger(project="EEGClip_classif",
                         save_dir = results_dir + '/wandb',
-                        log_model=False,
+                        log_model=True,
                         )
 
     wandb_logger.experiment.config.update({"freeze_encoder": freeze_encoder,

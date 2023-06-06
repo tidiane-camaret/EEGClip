@@ -37,7 +37,7 @@ mne.set_log_level('ERROR')  # avoid messages everytime a window is extracted
 import os
 
 """
-This script is used to train a classifier model
+This script is used to train a classifier model zero-shot style
 on the TUH EEG dataset for different classification tasks :
 pathological
 age
@@ -56,12 +56,6 @@ if __name__ == "__main__":
                         help='classification task name (pathological, age, gender, report-related tasks ....')    
     parser.add_argument('--n_rec', type=int, default=2993,
                         help='Number of recordings to load from TUH EEG dataset.')
-    parser.add_argument('--n_epochs', type=int, default=10,
-                        help='Number of epochs to train EEGClip model.')
-    parser.add_argument('--batch_size', type=int, default=64,
-                        help='Batch size to train EEGClip model.')
-    #parser.add_argument('--nailcluster', action='store_true',
-    #                    help='Whether to run on the Nail cluster(paths differ)')
     parser.add_argument('--num_workers', type=int, default=16,
                         help='Number of workers to use for data loading.')
 
@@ -116,8 +110,7 @@ if __name__ == "__main__":
     n_minutes = 2
     input_window_samples = 1200
     
-    n_epochs = args.n_epochs
-    batch_size = args.batch_size
+    batch_size = 64
 
     nailcluster = (socket.gethostname() == "vs3-0")
 
@@ -250,8 +243,6 @@ if __name__ == "__main__":
         return emb
 
 
-    s0 = "This is a normal recording."
-    s1 = "This is an abnormal recording."
 
     s0_embed = sentence_embedder(s0)
     s1_embed = sentence_embedder(s1)
