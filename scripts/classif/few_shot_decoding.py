@@ -40,7 +40,7 @@ report-based (medication, diagnosis ...)
 """
 #MODEL_PATH = '/home/jovyan/EEGClip/results/wandb/EEGClip/df7e5wqd/checkpoints/epoch=7-step=48696.ckpt'
 MODEL_PATH = {"eegclip128":"/home/jovyan/EEGClip/results/wandb/EEGClip/1lgwz214/checkpoints/epoch=6-step=42609.ckpt",
-              "eegclip":"/home/jovyan/EEGClip/results/wandb/EEGClip/1cdd839s/checkpoints/epoch=19-step=14200.ckpt",
+              "eegclip":"/home/jovyan/EEGClip/results/wandb/EEGClip/3lh2536v/checkpoints/epoch=19-step=1760.ckpt",
               "pathological_task" : "/home/jovyan/EEGClip/results/wandb/EEGClip_classif/1oqtbdtr/checkpoints/epoch=9-step=7600.ckpt",
               "under_50_task" : "/home/jovyan/EEGClip/results/wandb/EEGClip_classif/3d1yl4md/checkpoints/epoch=9-step=7600.ckpt"
             }
