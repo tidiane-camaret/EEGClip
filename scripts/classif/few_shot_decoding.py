@@ -4,7 +4,7 @@ import random
 import pandas as pd
 import numpy as np
 import torch 
-
+from torch import nn
 from braindecode.datasets.base import BaseConcatDataset
 from braindecode.datasets import TUHAbnormal
 from braindecode.preprocessing import create_fixed_length_windows
@@ -39,7 +39,8 @@ report-based (medication, diagnosis ...)
 
 """
 #MODEL_PATH = '/home/jovyan/EEGClip/results/wandb/EEGClip/df7e5wqd/checkpoints/epoch=7-step=48696.ckpt'
-MODEL_PATH = {"eegclip":"/home/jovyan/EEGClip/results/wandb/EEGClip/1lgwz214/checkpoints/epoch=6-step=42609.ckpt",
+MODEL_PATH = {"eegclip128":"/home/jovyan/EEGClip/results/wandb/EEGClip/1lgwz214/checkpoints/epoch=6-step=42609.ckpt",
+              "eegclip":"/home/jovyan/EEGClip/results/wandb/EEGClip/1cdd839s/checkpoints/epoch=19-step=14200.ckpt",
               "pathological_task" : "/home/jovyan/EEGClip/results/wandb/EEGClip_classif/1oqtbdtr/checkpoints/epoch=9-step=7600.ckpt",
               "under_50_task" : "/home/jovyan/EEGClip/results/wandb/EEGClip_classif/3d1yl4md/checkpoints/epoch=9-step=7600.ckpt"
             }
@@ -153,7 +154,7 @@ if __name__ == "__main__":
 
     
     #dataset = dataset.split('train')['True']
-
+    """
     subject_datasets = dataset.split('subject')
     n_subjects = len(subject_datasets)
 
@@ -173,20 +174,23 @@ if __name__ == "__main__":
     print("Nb valid subjects loaded : ",len(valid_sets))
     valid_set = BaseConcatDataset(valid_sets)
     """
-    train_set = dataset.split('train')['True']
-    train_subject_datasets = train_set.split('subject')
-    print("Nb train subjects loaded : ",len(train_subject_datasets))
-    # Subsampling for few-shot learning TODO : balanced subsampling
-    keys = list(train_subject_datasets.keys())
-    keys = random.sample(keys, len(keys) // train_frac)
-    train_sets = [d for k in keys for d in train_subject_datasets[k].datasets]
-    print("Final nb train subjects loaded : ",len(train_sets))
+    subject_datasets = dataset.split('subject')
+    n_subjects = len(subject_datasets)
+    n_subjects
+    keys = list(subject_datasets.keys())
+
+    train_keys = keys[int(n_subjects * 0.70):int(n_subjects * 0.90)]
+    train_keys = random.sample(train_keys, len(train_keys) // train_frac) #subsample training set
+
+    valid_keys = keys[int(n_subjects * 0.90):n_subjects]
+
+    train_sets = [d for k in train_keys for d in subject_datasets[k].datasets]
     train_set = BaseConcatDataset(train_sets)
 
-    valid_set = dataset.split('train')['False']
-    valid_subject_datasets = valid_set.split('subject')
-    print("Nb valid subjects loaded : ",len(valid_subject_datasets))
-    """
+    valid_sets = [d for k in valid_keys for d in subject_datasets[k].datasets]
+    valid_set = BaseConcatDataset(valid_sets)
+
+
     window_train_set = create_fixed_length_windows(
         train_set,
         start_offset_samples=60*sfreq,
@@ -263,6 +267,7 @@ if __name__ == "__main__":
 
         to_dense_prediction_model(EEGEncoder)
 
+
     else:
         EEGEncoder = Deep4Net(
             in_chans=n_chans,
@@ -294,7 +299,7 @@ if __name__ == "__main__":
     wandb_logger.experiment.config.update({"freeze_encoder": freeze_encoder,
                                             "weights": weights,
                                             "task_name": task_name,
-                                            "target_name": target_name},
+                                            "train_frac":train_frac},
                                             #allow_val_change=True
                                             )
     trainer = Trainer(

@@ -225,20 +225,6 @@ def cross_entropy(preds, targets, reduction='none'):
     elif reduction == "mean":
         return loss.mean()
 
-def extract_label_from_ids(ids):
-    labels = []
-    for id in ids:
-        # convert int tensor to int
-        id = id.item()
-        # look for id in info_df and return the "label" column
-        label = CFG.info_df.loc[CFG.info_df['ID'] == id]['LABEL']
-        #if len(label) == 0:
-        #    print(f'ID {id} not found in info_df')
-        #    continue
-        label = label.item()
-        label = 1 if label == 'abnormal' else 0
-        labels.append(label) 
-    return torch.tensor(labels)
         
 class EEGClipModel(pl.LightningModule):
     def __init__(self, 
@@ -321,9 +307,9 @@ class EEGClipModel(pl.LightningModule):
 
         # Extract the labels from the description string
         # TODO : add other labels
-        #string_batch = [string[string.find('IMPRESSION:'):string.find('CLINICAL CORRELATION:')] for string in string_batch]
-        #labels = [1 if "abnormal" in string.lower() else 0 for string in string_batch]
-        labels = [0 if "seizure" not in l.lower() or "no seizure" in l.lower() else 1 for l in string_batch]
+        string_batch = [string[string.find('IMPRESSION:'):string.find('CLINICAL CORRELATION:')] for string in string_batch]
+        labels = [1 if "abnormal" in string.lower() else 0 for string in string_batch]
+        #labels = [0 if "seizure" not in l.lower() or "no seizure" in l.lower() else 1 for l in string_batch]
         labels = torch.IntTensor(labels).to(CFG.device)
 
         #print("SHAPE OF ID BATCH: ", id_batch[0].shape)
@@ -368,14 +354,12 @@ class EEGClipModel(pl.LightningModule):
         return loss
     
     def on_validation_epoch_end(self):
-        report_list = list(set(self.report_list))
-        with open('parrot.pkl', 'wb') as f:
-           pickle.dump(report_list, f)
+        #report_list = list(set(self.report_list))
+        #with open('parrot.pkl', 'wb') as f:
+        #   pickle.dump(report_list, f)
 
         features_valid = torch.cat(self.features_valid).cpu()
         ids_valid = torch.cat(self.ids_valid).cpu()
-        #labels_valid = extract_label_from_ids(ids_valid) # TODO : See why extracting label this ways leads to 50% accuracy
-        # possible reason : ids are not ids of recording but of crop
         labels_valid = torch.cat(self.labels_valid).cpu()
 
         equal_to_extracted = (labels_valid == torch.cat(self.labels_valid).cpu())
@@ -386,7 +370,6 @@ class EEGClipModel(pl.LightningModule):
         if self.features_train :
             features_train = torch.cat(self.features_train).cpu()
             ids_train = torch.cat(self.ids_train).cpu()
-            #labels_train = extract_label_from_ids(ids_train)
             labels_train = torch.cat(self.labels_train).cpu()
             equal_to_extracted = (labels_train == torch.cat(self.labels_train).cpu())
             print("proportion of correctly extracted labels (valid): ", torch.sum(equal_to_extracted)/equal_to_extracted.shape[0])
