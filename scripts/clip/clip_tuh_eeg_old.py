@@ -111,18 +111,15 @@ def run_training(
 
     subject_datasets = dataset.split('subject')
     n_subjects = len(subject_datasets)
-    n_subjects
+
+    print("Nb subjects loaded : ", n_subjects)
+    
+    n_split = int(np.round(n_subjects * 0.75))
     keys = list(subject_datasets.keys())
-    train_keys = keys[:int(n_subjects * 0.70)]
-    valid_keys = keys[int(n_subjects * 0.70):n_subjects]
-
-
-    train_sets = [d for k in train_keys for d in subject_datasets[k].datasets]
+    train_sets = [d for i in range(n_split) for d in subject_datasets[keys[i]].datasets]
     train_set = BaseConcatDataset(train_sets)
-
-    valid_sets = [d for k in valid_keys for d in subject_datasets[k].datasets]
+    valid_sets = [d for i in range(n_split, n_subjects) for d in subject_datasets[keys[i]].datasets]
     valid_set = BaseConcatDataset(valid_sets)
-
 
 
     window_train_set = create_fixed_length_windows(
@@ -156,7 +153,12 @@ def run_training(
         shuffle=True,
         num_workers=num_workers,
         drop_last=True)
-
+    train_det_loader = torch.utils.data.DataLoader(
+        window_train_set,
+        batch_size=batch_size,
+        shuffle=False,
+        num_workers=num_workers,
+        drop_last=False)
     valid_loader = torch.utils.data.DataLoader(
         window_valid_set,
         batch_size=batch_size,
@@ -165,6 +167,7 @@ def run_training(
         drop_last=False)
     
 
+    n_classes = 16 # size of the last layer of the EEG decoder
     n_chans = 21 # number of channels in the EEG data
 
     wandb_logger = WandbLogger(project="EEGClip",
@@ -194,18 +197,18 @@ def run_training(
             )
     
 
+    
+    #trainer.save_checkpoint(results_dir + '/models/' + model_name + '.ckpt')
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Train EEGClip on TUH EEG dataset.')
     parser.add_argument('--n_rec', type=int, default=2993,
                         help='Number of recordings to load from TUH EEG dataset.')
     parser.add_argument('--n_epochs', type=int, default=20,
                         help='Number of epochs to train EEGClip model.')
-    parser.add_argument('--batch_size', type=int, default=512,
+    parser.add_argument('--batch_size', type=int, default=64,
                         help='Batch size to train EEGClip model.')
-    parser.add_argument('--projected_emb_dim', type=int, default=64,
-                        help='Final embedding size for the EEGClip model.')
-    parser.add_argument('--num_fc_layers', type=int, default=3,
-                        help='nb layers in the projection modules')
     parser.add_argument('--lr', type=float, default=5e-3,
                         help='Learning rate to train EEGClip model.')
     parser.add_argument('--weight_decay', type=float, default=5e-4,
@@ -234,7 +237,7 @@ if __name__ == "__main__":
         lr=args.lr,
         weight_decay=args.weight_decay,
         string_sampling=args.string_sampling,
-        projected_emb_dim = args.projected_emb_dim,
-        num_fc_layers = args.num_fc_layers,
+        projected_emb_dim = 128,
+        num_fc_layers = 3,
         model_name = model_name,
     )
