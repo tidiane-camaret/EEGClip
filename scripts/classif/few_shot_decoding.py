@@ -68,7 +68,8 @@ if __name__ == "__main__":
                         help='Whether to freeze encoder during training')
     parser.add_argument('--train_frac', type=int, default=1,
                         help='factor of division for the training set (few shot learning)')
-
+    parser.add_argument('--seed', type=int, default=20210325,
+                        help='random seed')
     args = parser.parse_args()
 
     num_workers = args.num_workers
@@ -110,7 +111,7 @@ if __name__ == "__main__":
     n_preds_per_input = 519 #get_output_shape(eeg_classifier_model, n_chans, input_window_samples)[2]
 
   
-    seed = 20210325  # random seed to make results reproducible
+    seed = args.seed  # random seed to make results reproducible
 
     cuda = torch.cuda.is_available()
     set_random_seeds(seed=seed, cuda=cuda)
@@ -119,7 +120,7 @@ if __name__ == "__main__":
     # ## Load data
     dataset = TUHAbnormal(
         path=tuh_data_dir,
-        recording_ids=range(n_recordings_to_load),  # loads the n chronologically first recordings
+        recording_ids=None,#range(n_recordings_to_load),  # loads the n chronologically first recordings
         target_name=target_name,  # age, gender, pathology
         preload=False,
         add_physician_reports=True,
@@ -224,12 +225,7 @@ if __name__ == "__main__":
         shuffle=True,
         num_workers=num_workers,
         drop_last=True)
-    train_det_loader = torch.utils.data.DataLoader(
-        window_train_set,
-        batch_size=batch_size,
-        shuffle=False,
-        num_workers=num_workers,
-        drop_last=False)
+
     valid_loader = torch.utils.data.DataLoader(
         window_valid_set,
         batch_size=batch_size,
@@ -291,9 +287,9 @@ if __name__ == "__main__":
 
     print('encoder_output_dim', encoder_output_dim)
             # ## Run Training
-    wandb_logger = WandbLogger(project="EEGClip_classif",
+    wandb_logger = WandbLogger(project="EEGClip_few_shot",
                         save_dir = results_dir + '/wandb',
-                        log_model=True,
+                        log_model=False,
                         )
 
     wandb_logger.experiment.config.update({"freeze_encoder": freeze_encoder,
