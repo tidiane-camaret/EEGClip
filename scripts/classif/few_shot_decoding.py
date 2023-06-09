@@ -41,8 +41,8 @@ report-based (medication, diagnosis ...)
 #MODEL_PATH = '/home/jovyan/EEGClip/results/wandb/EEGClip/df7e5wqd/checkpoints/epoch=7-step=48696.ckpt'
 MODEL_PATH = {"eegclip128":"/home/jovyan/EEGClip/results/wandb/EEGClip/1lgwz214/checkpoints/epoch=6-step=42609.ckpt",
               "eegclip":"/home/jovyan/EEGClip/results/wandb/EEGClip/3lh2536v/checkpoints/epoch=19-step=1760.ckpt",
-              "pathological_task" : "/home/jovyan/EEGClip/results/wandb/EEGClip_classif/1oqtbdtr/checkpoints/epoch=9-step=7600.ckpt",
-              "under_50_task" : "/home/jovyan/EEGClip/results/wandb/EEGClip_classif/3d1yl4md/checkpoints/epoch=9-step=7600.ckpt"
+              "pathological_task" : "/home/jovyan/EEGClip/results/wandb/EEGClip_few_shot/1vljui8s/checkpoints/epoch=9-step=7100.ckpt",
+              "under_50_task" : "/home/jovyan/EEGClip/results/wandb/EEGClip_few_shot/akl12j6m/checkpoints/epoch=9-step=7100.ckpt"
             }
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Train an EEG classifier on the TUH EEG dataset.')
@@ -274,16 +274,10 @@ if __name__ == "__main__":
             )
 
         to_dense_prediction_model(EEGEncoder)
-        eegclassifiermodel = EEGClassifierModel.load_from_checkpoint(MODEL_PATH[weights],EEGEncoder=EEGEncoder)
+        eegclassifiermodel = EEGClassifierModel.load_from_checkpoint(MODEL_PATH[weights],EEGEncoder=EEGEncoder, encoder_output_dim = 64)
 
-        EEGEncoder = eegclassifiermodel.eeg_encoder
-        # get size of the last layer
-        projectionhead = list(EEGEncoder.children())[-1]
-        layer_sizes = []
-        for layer in projectionhead.children():
-            if hasattr(layer, 'out_features'):
-                layer_sizes.append(layer.out_features)
-        encoder_output_dim = layer_sizes[-1]
+        EEGEncoder = eegclassifiermodel.encoder
+
 
     print('encoder_output_dim', encoder_output_dim)
             # ## Run Training

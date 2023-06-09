@@ -6,6 +6,7 @@ do
     do  
         for seed in 1 2 3 4 5
         do
+            : '
             python -m scripts.classif.few_shot_decoding \
                      --task_name $task_name \
                      --train_frac $train_frac \
@@ -21,6 +22,19 @@ do
                      --train_frac $train_frac \
                      --freeze_encoder \
                      --weights random \
+                     --seed $seed
+            '
+            python -m scripts.classif.few_shot_decoding \
+                     --task_name $task_name \
+                     --train_frac $train_frac \
+                     --weights pathological_task \
+                     --freeze_encoder \
+                     --seed $seed
+            python -m scripts.classif.few_shot_decoding \
+                     --task_name $task_name \
+                     --train_frac $train_frac \
+                     --weights under_50_task \
+                     --freeze_encoder \
                      --seed $seed
         done 
     done
