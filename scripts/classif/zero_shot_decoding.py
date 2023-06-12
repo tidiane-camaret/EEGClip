@@ -117,7 +117,8 @@ if __name__ == "__main__":
     num_workers = args.num_workers
     
     #MODEL_PATH = '/home/jovyan/EEGClip/results/wandb/EEGClip/df7e5wqd/checkpoints/epoch=7-step=48696.ckpt'
-    MODEL_PATH = "/home/jovyan/EEGClip/results/wandb/EEGClip/1lgwz214/checkpoints/epoch=6-step=42609.ckpt"
+    #MODEL_PATH = "/home/jovyan/EEGClip/results/wandb/EEGClip/1lgwz214/checkpoints/epoch=6-step=42609.ckpt"
+    MODEL_PATH = "/home/jovyan/EEGClip/results/wandb/EEGClip/3lh2536v/checkpoints/epoch=19-step=1760.ckpt"
     #instructor_model = AutoModel.from_pretrained("hkunlp/instructor-xl")
     #instructor_tokenizer = AutoTokenizer.from_pretrained("hkunlp/instructor-xl")
     if nailcluster:
@@ -181,7 +182,7 @@ if __name__ == "__main__":
 
     print("Nb subjects loaded : ", n_subjects)
     
-    n_split = int(np.round(n_subjects * 0.75))
+    n_split = int(np.round(n_subjects * 0.70))
     keys = list(subject_datasets.keys())
 
     valid_sets = [d for i in range(n_split, n_subjects) for d in subject_datasets[keys[i]].datasets]
