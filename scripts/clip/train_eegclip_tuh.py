@@ -20,7 +20,7 @@ from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import ModelCheckpoint
 
 from EEGClip.clip_models import EEGClipModel
-
+import EEGClip_config
 
 import mne
 mne.set_log_level('ERROR')  # avoid messages everytime a window is extracted
@@ -31,30 +31,23 @@ import os
 This script is used to train the EEGClip model on the TUH EEG dataset.
 """
 
-
-
 def run_training(
         lr: float, # learning rate to train EEGClip model
         weight_decay: float, # weight decay to train EEGClip model
         string_sampling: bool, # whether to use string sampling
         projected_emb_dim: int, # dimension of projected embeddings
         num_fc_layers: int, # number of fully connected layers
-        model_name: str, # name of model to train
         target_name: str = "report", # target to train EEGClip model on
         n_recordings_to_load: int = 2993, # number of recordings to load from TUH EEG dataset
         n_epochs: int = 8, # number of epochs to train EEGClip model
         num_workers: int = 16, # number of workers to use for data loading
         batch_size: int = 64, # batch size to train EEGClip model
-        
                     ):
-    nailcluster = (socket.gethostname() == "vs3-0") # check if we are on the nail cluster or on kislurm
-    if nailcluster:
-        results_dir = "/home/jovyan/EEGClip/results/"
-        tuh_data_dir = "/home/jovyan/mne_data/TUH_PRE/tuh_eeg_abnormal_clip/v2.0.0/edf/"
-    else:
-        results_dir = "/home/ndirt/dev/neuro_ai/EEGClip/results/"
-        tuh_data_dir = "/data/datasets/TUH/EEG/tuh_eeg_abnormal/v2.0.0/edf/"
 
+    nailcluster = (socket.gethostname() == "vs3-0") # check if we are on the nail cluster or on kislurm
+
+    results_dir = EEGClip_config.results_dir
+    tuh_data_dir = EEGClip_config.tuh_data_dir
 
     n_max_minutes = 3
     sfreq = 100
@@ -200,7 +193,7 @@ if __name__ == "__main__":
                         help='Number of recordings to load from TUH EEG dataset.')
     parser.add_argument('--n_epochs', type=int, default=20,
                         help='Number of epochs to train EEGClip model.')
-    parser.add_argument('--batch_size', type=int, default=512,
+    parser.add_argument('--batch_size', type=int, default=64,
                         help='Batch size to train EEGClip model.')
     parser.add_argument('--projected_emb_dim', type=int, default=64,
                         help='Final embedding size for the EEGClip model.')
@@ -221,9 +214,7 @@ if __name__ == "__main__":
     target_name = "report" #('report', 'pathological', 'age', 'gender')
     # TODO : find a way to use several targets
 
-        # ## Save model
-    model_name = "EEGClip_" + \
-        "n_epochs_" + str(args.n_epochs)
+
     
     run_training(
         target_name=target_name,
@@ -236,5 +227,4 @@ if __name__ == "__main__":
         string_sampling=args.string_sampling,
         projected_emb_dim = args.projected_emb_dim,
         num_fc_layers = args.num_fc_layers,
-        model_name = model_name,
-    )
+            )

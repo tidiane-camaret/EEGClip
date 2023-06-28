@@ -1,3 +1,4 @@
+import os
 import argparse
 import socket
 import random
@@ -5,6 +6,9 @@ import pandas as pd
 import numpy as np
 import torch 
 from torch import nn
+import mne
+mne.set_log_level('ERROR')  # avoid messages everytime a window is extracted
+
 from braindecode.datasets.base import BaseConcatDataset
 from braindecode.datasets import TUHAbnormal
 from braindecode.preprocessing import create_fixed_length_windows
@@ -23,11 +27,8 @@ from pytorch_lightning.callbacks import ModelCheckpoint
 
 from EEGClip.classifier_models import EEGClassifierModel
 from EEGClip.clip_models import EEGClipModel
+from EEGClip_config import model_paths
 
-import mne
-mne.set_log_level('ERROR')  # avoid messages everytime a window is extracted
-
-import os
 
 """
 This script is used to train a classifier model
@@ -38,12 +39,7 @@ gender
 report-based (medication, diagnosis ...)
 
 """
-#MODEL_PATH = '/home/jovyan/EEGClip/results/wandb/EEGClip/df7e5wqd/checkpoints/epoch=7-step=48696.ckpt'
-MODEL_PATH = {"eegclip128":"/home/jovyan/EEGClip/results/wandb/EEGClip/1lgwz214/checkpoints/epoch=6-step=42609.ckpt",
-              "eegclip":"/home/jovyan/EEGClip/results/wandb/EEGClip/3lh2536v/checkpoints/epoch=19-step=1760.ckpt",
-              "pathological_task" : "/home/jovyan/EEGClip/results/wandb/EEGClip_few_shot/1vljui8s/checkpoints/epoch=9-step=7100.ckpt",
-              "under_50_task" : "/home/jovyan/EEGClip/results/wandb/EEGClip_few_shot/akl12j6m/checkpoints/epoch=9-step=7100.ckpt"
-            }
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Train an EEG classifier on the TUH EEG dataset.')
     parser.add_argument('--task_name', type=str, default="pathological",
@@ -66,6 +62,8 @@ if __name__ == "__main__":
                         help='Whether to freeze encoder during training')
     parser.add_argument('--train_frac', type=int, default=1,
                         help='factor of division for the training set (few shot learning)')
+    parser.add_argument('--exclude_eegclip_train_set', action='store_true',
+                        help='excludes the first 70% subjects for training and testing')
     parser.add_argument('--seed', type=int, default=20210325,
                         help='random seed')
     args = parser.parse_args()
@@ -87,7 +85,8 @@ if __name__ == "__main__":
     sfreq = 100
     n_minutes = 2
     input_window_samples = 1200
-    
+
+    exclude_eegclip_train_set = args.exclude_eegclip_train_set
     n_epochs = args.n_epochs
     batch_size = args.batch_size
     lr = args.lr
@@ -98,14 +97,10 @@ if __name__ == "__main__":
     num_workers = args.num_workers
     
 
-    if nailcluster:
-        results_dir = "/home/jovyan/EEGClip/results/"
-        tuh_data_dir = "/home/jovyan/mne_data/TUH_PRE/tuh_eeg_abnormal_clip/v2.0.0/edf/"
-    else:
-        results_dir = "/home/ndirt/dev/neuro_ai/EEGClip/results/"
-        tuh_data_dir = "/data/datasets/TUH/EEG/tuh_eeg_abnormal/v2.0.0/edf/"
+    results_dir = config.results_dir
+    tuh_data_dir = config.tuh_data_dir
 
-  # TODO : use get_output_shape (requires to load the model first)
+    # TODO : use get_output_shape (requires to load the model first)
     n_preds_per_input = 519 #get_output_shape(eeg_classifier_model, n_chans, input_window_samples)[2]
 
   
@@ -177,11 +172,15 @@ if __name__ == "__main__":
     n_subjects = len(subject_datasets)
     n_subjects
     keys = list(subject_datasets.keys())
+    if exclude_eegclip_train_set : 
+        train_keys = keys[int(n_subjects * 0.70):int(n_subjects * 0.90)]
+        valid_keys = keys[int(n_subjects * 0.90):n_subjects]
+    else : 
+        train_keys = keys[:int(n_subjects * 0.70)]
+        valid_keys = keys[int(n_subjects * 0.70):n_subjects]
 
-    train_keys = keys[int(n_subjects * 0.70):int(n_subjects * 0.90)]
-    train_keys = random.sample(train_keys, len(train_keys) // train_frac) #subsample training set
-
-    valid_keys = keys[int(n_subjects * 0.90):n_subjects]
+    #subsample training set
+    train_keys = random.sample(train_keys, len(train_keys) // train_frac) 
 
     train_sets = [d for k in train_keys for d in subject_datasets[k].datasets]
     train_set = BaseConcatDataset(train_sets)
@@ -239,7 +238,7 @@ if __name__ == "__main__":
 
     # ## Create model
     if weights == "eegclip":
-            eegclipmodel = EEGClipModel.load_from_checkpoint(MODEL_PATH["eegclip"])
+            eegclipmodel = EEGClipModel.load_from_checkpoint(model_paths["eegclip"])
             EEGEncoder = torch.nn.Sequential(eegclipmodel.eeg_encoder,eegclipmodel.eeg_projection)
             
             """# classifier should have the same shape everywhere for fair comparison
@@ -272,7 +271,7 @@ if __name__ == "__main__":
             )
 
         to_dense_prediction_model(EEGEncoder)
-        eegclassifiermodel = EEGClassifierModel.load_from_checkpoint(MODEL_PATH[weights],EEGEncoder=EEGEncoder, encoder_output_dim = 64)
+        eegclassifiermodel = EEGClassifierModel.load_from_checkpoint(model_paths[weights],EEGEncoder=EEGEncoder, encoder_output_dim = 64)
 
         EEGEncoder = eegclassifiermodel.encoder
 

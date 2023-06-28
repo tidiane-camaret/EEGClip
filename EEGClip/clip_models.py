@@ -23,6 +23,7 @@ from transformers import AutoTokenizer, AutoModel, AutoModelForCausalLM, AutoCon
 
 import pytorch_lightning as pl
 
+import EEGClip_config
 
 
 class CFG:
@@ -65,26 +66,25 @@ class TextEncoder(nn.Module):
         self.target_token_idx = 0
         """
         #TODO : add a config file for the path
-        report_df_path = '/home/jovyan/EEGClip/scripts/text_analysis/report_df_embs.csv'
-        report_df = pd.read_csv(report_df_path)
+        embs_df = pd.read_csv(EEGClip_config.embs_df_path)
         embs_name = "embs_instructor"
-        for r in range(len(report_df)):
-            re = copy.copy(report_df[embs_name][r])
+        for r in range(len(embs_df)):
+            re = copy.copy(embs_df[embs_name][r])
             # convert the string to array
             re = re.replace('[', '')
             re = re.replace(']', '')
             re = re.replace(',', '')
             re = re.split()
             re = [float(i) for i in re]
-            report_df[embs_name][r] = re
+            embs_df[embs_name][r] = re
 
-        self.report_df = report_df
+        self.embs_df = embs_df
 
 
     def forward(self, string_batch):
         string_batch = list(string_batch)
 
-        if self.string_sampling:
+        if self.string_sampling: # randomly sample strings from the report
             for i, string in enumerate(string_batch):
                 # look for the positions of \n occurences
                 newlines = [m.start() for m in re.finditer('\n', string)]
@@ -97,10 +97,10 @@ class TextEncoder(nn.Module):
                 # sample a random substring
                 string_batch[i] = string[start:end]
 
-        if self.lookup_strings :
+        if self.lookup_strings: #lookup precomputed embeddings (faster training) 
             embs = []
             for s in string_batch:
-                lookup = self.report_df.loc[self.report_df['report'] == s, 'embs_instructor']
+                lookup = self.embs_df.loc[self.embs_df['report'] == s, 'embs_instructor']
                 
                 emb = lookup.item()
                 embs.append(emb)

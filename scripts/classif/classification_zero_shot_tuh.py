@@ -1,3 +1,4 @@
+import os
 import argparse
 import socket
 import pandas as pd
@@ -34,7 +35,8 @@ from EEGClip.clip_models import EEGClipModel
 import mne
 mne.set_log_level('ERROR')  # avoid messages everytime a window is extracted
 
-import os
+
+import EEGClip_config
 
 """
 This script is used to train a classifier model zero-shot style
@@ -116,17 +118,8 @@ if __name__ == "__main__":
 
     num_workers = args.num_workers
     
-    #MODEL_PATH = '/home/jovyan/EEGClip/results/wandb/EEGClip/df7e5wqd/checkpoints/epoch=7-step=48696.ckpt'
-    #MODEL_PATH = "/home/jovyan/EEGClip/results/wandb/EEGClip/1lgwz214/checkpoints/epoch=6-step=42609.ckpt"
-    MODEL_PATH = "/home/jovyan/EEGClip/results/wandb/EEGClip/3lh2536v/checkpoints/epoch=19-step=1760.ckpt"
-    #instructor_model = AutoModel.from_pretrained("hkunlp/instructor-xl")
-    #instructor_tokenizer = AutoTokenizer.from_pretrained("hkunlp/instructor-xl")
-    if nailcluster:
-        results_dir = "/home/jovyan/EEGClip/results/"
-        tuh_data_dir = "/home/jovyan/mne_data/TUH_PRE/tuh_eeg_abnormal_clip/v2.0.0/edf/"
-    else:
-        results_dir = "/home/ndirt/dev/neuro_ai/EEGClip/results/"
-        tuh_data_dir = "/data/datasets/TUH/EEG/tuh_eeg_abnormal/v2.0.0/edf/"
+    results_dir = EEGClip_config.results_dir
+    tuh_data_dir = EEGClip_config.tuh_data_dir
 
   # TODO : use get_output_shape (requires to load the model first)
     n_preds_per_input = 519 #get_output_shape(eeg_classifier_model, n_chans, input_window_samples)[2]
@@ -217,7 +210,7 @@ if __name__ == "__main__":
 
     # ## Create model
 
-    eegclipmodel = EEGClipModel.load_from_checkpoint(MODEL_PATH)
+    eegclipmodel = EEGClipModel.load_from_checkpoint(EEGClip_config.model_paths["eegclip"])
     eegclipmodel.cuda()
     EEGEncoder = torch.nn.Sequential(eegclipmodel.eeg_encoder,eegclipmodel.eeg_projection)
     # get size of the last layer
@@ -300,5 +293,5 @@ if __name__ == "__main__":
     plt.scatter([a[0] for a in features2d],
                 [a[1] for a in features2d],
                 c=labels)
-    plt.savefig("/home/jovyan/EEGClip/results/clip_graphs/tsne_map.png")
+    plt.savefig(EEGClip_config.results_dir + "clip_graphs/tsne_map.png")
 
