@@ -64,6 +64,7 @@ class TextEncoder(nn.Module):
         
         self.target_token_idx = 0
         """
+        #TODO : add a config file for the path
         report_df_path = '/home/jovyan/EEGClip/scripts/text_analysis/report_df_embs.csv'
         report_df = pd.read_csv(report_df_path)
         embs_name = "embs_instructor"
