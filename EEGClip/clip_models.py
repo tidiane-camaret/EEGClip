@@ -45,9 +45,11 @@ class TextEncoder(nn.Module):
                  text_encoder_pretrained,
                  text_encoder_trainable,
                  string_sampling,
+                 lookup_strings = True #use previously computed embeddings
                 ):
         super().__init__()
         self.string_sampling = string_sampling
+        self.lookup_strings = lookup_strings
         """
         if text_encoder_pretrained:
             self.model = AutoModel.from_pretrained(text_encoder_name, output_hidden_states=True)
@@ -94,16 +96,12 @@ class TextEncoder(nn.Module):
                 # sample a random substring
                 string_batch[i] = string[start:end]
 
-        lookup_strings = True
-
-        if lookup_strings :
+        if self.lookup_strings :
             embs = []
             for s in string_batch:
                 lookup = self.report_df.loc[self.report_df['report'] == s, 'embs_instructor']
                 
                 emb = lookup.item()
-                
-                
                 embs.append(emb)
             embs = torch.Tensor(embs).to(CFG.device)
                 
