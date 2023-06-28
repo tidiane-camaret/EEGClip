@@ -31,8 +31,6 @@ class CFG:
     """
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     num_workers = 8
-    text_model_emb_dim = 768
-    projected_emb_dim = 256
     temperature = 1.0
     classifiers_dict = {
         #'knn': KNeighborsClassifier(n_neighbors=10),
