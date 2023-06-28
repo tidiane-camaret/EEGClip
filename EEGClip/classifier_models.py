@@ -13,11 +13,11 @@ class EEGClassifierModel(pl.LightningModule):
     Can use pretrained encoders.
 
     Args:
-        encoder (torch.nn.Module): pretrained encoder
+        EEGencoder (torch.nn.Module): pretrained encoder
         freeze_encoder (bool): whether to freeze encoder
-       lr (float): learning rate
-       weight_decay (float): weight decay
-       n_classes (int): number of classes
+        lr (float): learning rate
+        weight_decay (float): weight decay
+        n_classes (int): number of classes
 
     """
     def __init__(self,
