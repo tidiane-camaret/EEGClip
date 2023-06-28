@@ -211,7 +211,7 @@ if __name__ == "__main__":
     parser.add_argument('--weight_decay', type=float, default=5e-4,
                         help='Weight decay to train EEGClip model.')
     parser.add_argument('--string_sampling', action='store_true',
-                        help='Whether to use string sampling')
+                        help='Whether to use string sampling : random sampling of sentences in each batch')
     parser.add_argument('--num_workers', type=int, default=16,
                         help='Number of workers to use for data loading.')
 

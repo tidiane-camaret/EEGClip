@@ -1,3 +1,7 @@
+""" 
+Baseline implementation by Robin
+"""
+
 # %% [markdown]
 # ## notebook setup, not necessary for code to run
 

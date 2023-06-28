@@ -5,7 +5,7 @@ Run sweep using CUDA_VISIBLE_DEVICES=0 wandb agent tidiane/EEGClip_HPO/2omz42gc
 # Import the W&B Python Library and log into W&B
 import wandb
 import torch
-from scripts.clip.clip_tuh_eeg import run_training
+from scripts.clip.train_eegclip_tuh import run_training
 wandb.login()
 
 

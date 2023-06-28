@@ -58,8 +58,6 @@ if __name__ == "__main__":
                         help='Learning rate to train EEGClip model.')
     parser.add_argument('--weight_decay', type=float, default=5e-4,
                         help='Weight decay to train EEGClip model.')
-    #parser.add_argument('--nailcluster', action='store_true',
-    #                    help='Whether to run on the Nail cluster(paths differ)')
     parser.add_argument('--num_workers', type=int, default=16,
                         help='Number of workers to use for data loading.')
     parser.add_argument('--weights', type=str, default="eegclip",
