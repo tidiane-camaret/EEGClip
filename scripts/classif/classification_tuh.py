@@ -123,11 +123,12 @@ if __name__ == "__main__":
     # ## Load data
     dataset = TUHAbnormal(
         path=tuh_data_dir,
-        recording_ids=None,#range(n_recordings_to_load),  # loads the n chronologically first recordings
+        recording_ids=range(n_recordings_to_load),  # loads the n chronologically first recordings
         target_name=target_name,  # age, gender, pathology
         preload=False,
         add_physician_reports=True,
-        n_jobs=1)
+        #n_jobs=1
+        )
     
     # ## Preprocessing
 
@@ -183,21 +184,17 @@ if __name__ == "__main__":
 
     else : 
         
-        """
         train_set = dataset.split('train')['True']
-        test_set = dataset.split('train')['False']
-        subject_datasets = whole_train_set.split('subject')
+
+        subject_datasets = train_set.split('subject')
         n_subjects = len(subject_datasets)
 
         n_split = int(np.round(n_subjects * 0.75))
         keys = list(subject_datasets.keys())
         train_sets = [d for i in range(n_split) for d in subject_datasets[keys[i]].datasets]
         train_set = BaseConcatDataset(train_sets)
-        valid_sets = [d for i in range(n_split, n_subjects) for d in subject_datasets[keys[i]].datasets]
-        valid_set = BaseConcatDataset(valid_sets)
-        """
-        train_set = dataset.split('train')['True']
-        valid_set = dataset.split('train')['False'] # wrong. but wont be used anyways.
+
+        valid_set = dataset.split('train')['False']
 
     window_train_set = create_fixed_length_windows(
         train_set,
@@ -248,7 +245,7 @@ if __name__ == "__main__":
 
     # ## Create model
     if weights == "eegclip":
-            eegclipmodel = EEGClipModel.load_from_checkpoint(results_dir + "/models/EEGClip_100.ckpt")
+            eegclipmodel = EEGClipModel.load_from_checkpoint(results_dir + "/models/EEGClip_75.ckpt")
             EEGEncoder = torch.nn.Sequential(eegclipmodel.eeg_encoder,eegclipmodel.eeg_projection)
             
             """# classifier should have the same shape everywhere for fair comparison
@@ -260,6 +257,7 @@ if __name__ == "__main__":
             encoder_output_dim = layer_sizes[-1]
             """
     elif weights == "random":
+        """
         EEGEncoder = Deep4Net(
             in_chans=n_chans,
             n_classes=encoder_output_dim, 
@@ -270,7 +268,15 @@ if __name__ == "__main__":
 
         to_dense_prediction_model(EEGEncoder)
 
-
+        """
+        eegclipmodel = EEGClipModel.load_from_checkpoint(results_dir + "/models/EEGClip_75.ckpt")
+        #print(eegclipmodel)
+        EEGEncoder = torch.nn.Sequential(eegclipmodel.eeg_encoder,eegclipmodel.eeg_projection)
+        for layer in EEGEncoder.modules():
+            if hasattr(layer, 'reset_parameters'):
+                #print(layer)
+                layer.reset_parameters()
+   
     else:
         EEGEncoder = Deep4Net(
             in_chans=n_chans,
@@ -281,7 +287,7 @@ if __name__ == "__main__":
             )
 
         to_dense_prediction_model(EEGEncoder)
-        eegclassifiermodel = EEGClassifierModel.load_from_checkpoint(results_dir + "/models/"+weights+"_100.ckpt",EEGEncoder=EEGEncoder, encoder_output_dim = 64)
+        eegclassifiermodel = EEGClassifierModel.load_from_checkpoint(results_dir + "/models/"+weights+"_75.ckpt",EEGEncoder=EEGEncoder, encoder_output_dim = 64)
 
         EEGEncoder = eegclassifiermodel.encoder
 
@@ -290,8 +296,6 @@ if __name__ == "__main__":
             # ## Run Training
     wandb_logger = WandbLogger(project="EEGClip_classif",
                         save_dir = results_dir + '/wandb',
-
-
                         log_model=False,
                         )
 
@@ -322,4 +326,4 @@ if __name__ == "__main__":
         valid_loader,
     )
 
-    trainer.save_checkpoint(results_dir + "/models/under_50_100.ckpt")
+    #trainer.save_checkpoint(results_dir + "/models/pathological_75.ckpt")

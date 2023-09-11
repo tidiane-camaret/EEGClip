@@ -9,7 +9,7 @@ do
                 --task_name $task_name \
                 --freeze_encoder \
 
-
+    :'
     # evaluate a frozen model
     python -m scripts.classif.classification_tuh \
                 --task_name $task_name \
@@ -24,17 +24,16 @@ do
 
     # evaluate a frozen model trained on a different task
 
-    if [$task_name == 'pathological']
-    then
-    weights = 'under_50_task'
+    if [ "$task_name" = "pathological" ]; then
+        weights="under_50"
     else
-    weights = 'pathological_task'
+        weights="pathological"
     fi
 
     python -m scripts.classif.classification_tuh \
                 --task_name $task_name \
                 --weights $weights \
                 --freeze_encoder \
-
+    '
 done 
 

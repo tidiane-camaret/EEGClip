@@ -12,7 +12,7 @@ Baseline implementation by Robin
 
 # %%
 n_recordings_to_load = 2993
-target_name = 'pathological'
+target_name = 'gender'
 n_max_minutes = 3
 sfreq = 100
 n_minutes = 2
@@ -163,6 +163,7 @@ window_train_set = create_fixed_length_windows(
     window_size_samples=input_window_samples,
     window_stride_samples=n_preds_per_input,
     drop_last_window=True,
+    mapping = {'M': 0, 'F': 1}
 )
 
 window_valid_set = create_fixed_length_windows(
@@ -173,6 +174,7 @@ window_valid_set = create_fixed_length_windows(
     window_size_samples=input_window_samples,
     window_stride_samples=n_preds_per_input,
     drop_last_window=False,
+    mapping = {'M': 0, 'F': 1}
 )
 
 window_test_set = create_fixed_length_windows(
@@ -183,6 +185,7 @@ window_test_set = create_fixed_length_windows(
     window_size_samples=input_window_samples,
     window_stride_samples=n_preds_per_input,
     drop_last_window=False,
+    mapping = {'M': 0, 'F': 1}
 )
 
 # %% [markdown]

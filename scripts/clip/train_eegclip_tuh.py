@@ -129,20 +129,18 @@ def run_training(
     
     else : 
         
-        """
         train_set = dataset.split('train')['True']
-        test_set = dataset.split('train')['False']
-        subject_datasets = whole_train_set.split('subject')
+        subject_datasets = train_set.split('subject')
         n_subjects = len(subject_datasets)
 
         n_split = int(np.round(n_subjects * 0.75))
         keys = list(subject_datasets.keys())
         train_sets = [d for i in range(n_split) for d in subject_datasets[keys[i]].datasets]
+        #train_sets = [d for i in range(n_split, n_subjects) for d in subject_datasets[keys[i]].datasets]
+
         train_set = BaseConcatDataset(train_sets)
-        valid_sets = [d for i in range(n_split, n_subjects) for d in subject_datasets[keys[i]].datasets]
-        valid_set = BaseConcatDataset(valid_sets)
-        """
-        train_set = dataset.split('train')['True']
+
+
         valid_set = dataset.split('train')['False'] # wrong. but wont be used anyways.
 
     window_train_set = create_fixed_length_windows(
@@ -214,7 +212,7 @@ def run_training(
                 valid_loader
             )
     #trainer.save_checkpoint(results_dir + "/models/crossval/EEGClip_fold_"+str(folds_nb)+'_'+str(fold_idx)+".ckpt")
-    trainer.save_checkpoint(results_dir + "/models/EEGClip_100.ckpt")
+    trainer.save_checkpoint(results_dir + "/models/EEGClip_75.ckpt")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Train EEGClip on TUH EEG dataset.')

@@ -13,6 +13,7 @@ do
                     --task_name $task_name \
                     --freeze_encoder \
                     --fold_idx $fold_idx
+                    --crossval
 
         # evaluate a frozen model
         python -m scripts.classif.classification_tuh \
@@ -20,23 +21,26 @@ do
                     --freeze_encoder \
                     --weights random \
                     --fold_idx $fold_idx
+                    --crossval
 
         # evaluate a fully trainable model 
         python -m scripts.classif.classification_tuh \
                     --task_name $task_name \
                     --weights random \
                     --fold_idx $fold_idx
+                    --crossval
         # evaluate a frozen model trained on a different task
-        :'
-        python -m scripts.classif.classification_tuh \
-                    --task_name $task_name \
-                    --weights pathological_task \
-                    --freeze_encoder \
+        if [$task_name == 'pathological']
+        then
+        weights = 'under_50'
+        else
+        weights = 'pathological'
+        fi
 
         python -m scripts.classif.classification_tuh \
                     --task_name $task_name \
-                    --weights under_50_task \
+                    --weights $weights \
                     --freeze_encoder \
-        '
+                    --crossval
     done 
 done
