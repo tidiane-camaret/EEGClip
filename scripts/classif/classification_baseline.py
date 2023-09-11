@@ -11,7 +11,7 @@ Baseline implementation by Robin
 # ## Hyperparameters
 
 # %%
-n_recordings_to_load = 300
+n_recordings_to_load = 2993
 target_name = 'pathological'
 n_max_minutes = 3
 sfreq = 100
@@ -79,7 +79,7 @@ from braindecode.datasets.tuh import TUHAbnormal
 data_path = '/home/jovyan/mne_data/TUH/tuh_eeg_abnormal/v2.0.0/edf/'
 dataset = TUHAbnormal(
     path=data_path,
-    #recording_ids=range(n_recordings_to_load),  # loads the n chronologically first recordings
+    recording_ids=range(n_recordings_to_load),  # loads the n chronologically first recordings
     target_name=target_name,  # age, gender, pathology
     preload=False,
     add_physician_reports=False,
@@ -100,6 +100,7 @@ from copy import deepcopy
 
 
 whole_train_set = dataset.split('train')['True']
+test_set = dataset.split('train')['False']
 
 ar_ch_names = sorted([
     'EEG A1-REF', 'EEG A2-REF',
@@ -120,7 +121,7 @@ preprocessors = [
 ]
 # Preprocess the data
 preprocess(whole_train_set, preprocessors)
-
+preprocess(test_set, preprocessors)
 # %% [markdown]
 # ## Data Splitting
 
@@ -174,6 +175,16 @@ window_valid_set = create_fixed_length_windows(
     drop_last_window=False,
 )
 
+window_test_set = create_fixed_length_windows(
+    test_set,
+    start_offset_samples=60*sfreq,
+    stop_offset_samples=60*sfreq+n_minutes*60*sfreq,
+    preload=True,
+    window_size_samples=input_window_samples,
+    window_stride_samples=n_preds_per_input,
+    drop_last_window=False,
+)
+
 # %% [markdown]
 # ## Initialize Data Loaders
 
@@ -200,6 +211,12 @@ valid_loader = th.utils.data.DataLoader(
     num_workers=num_workers,
     drop_last=False)
 
+test_loader = th.utils.data.DataLoader(
+    window_test_set,
+    batch_size=batch_size,
+    shuffle=False,
+    num_workers=num_workers,
+    drop_last=False)
 print(len(valid_loader.dataset))
 # %% [markdown]
 # ## Initialize Optimizer and Scheduler
@@ -237,7 +254,7 @@ for i_epoch in trange(n_epochs):
 
     epoch_results = {}
     epoch_results['epoch'] = i_epoch
-    for name, loader in {'train': train_det_loader, 'valid': valid_loader}.items():
+    for name, loader in {'train': train_det_loader, 'valid': valid_loader, 'test': test_loader}.items():
         print(f"Epoch {i_epoch:d}")
         all_preds = []
         all_is = []

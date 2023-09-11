@@ -103,7 +103,7 @@ if __name__ == "__main__":
         medication_list = ["keppra", "dilantin", "depakote"]
 
         s0 = "no anti-epileptic drugs were prescribed to the patient" #"The patient is unlikely to have been prescribed anti-epileptic drugs (anticonvulsants, keppra, dilantin or depakote), used to control seizures"  #"keppra", "dilantin", "depakote"
-        s1 = "anti-epileptic drugs medication was prescribed to the patient" #"The patient is likely to have been prescribed anti-epileptic drugs (anticonvulsants, keppra, dilantin or depakote), used to control seizures"  #"keppra, dilantin or depakote" 
+        s1 = "anti-epileptic drugs medication were prescribed to the patient" #"The patient is likely to have been prescribed anti-epileptic drugs (anticonvulsants, keppra, dilantin or depakote), used to control seizures"  #"keppra, dilantin or depakote" 
 
 
     # TODO : find a way to use several targets

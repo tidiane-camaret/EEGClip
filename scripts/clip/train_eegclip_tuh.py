@@ -42,6 +42,9 @@ def run_training(
         n_epochs: int = 8, # number of epochs to train EEGClip model
         num_workers: int = 16, # number of workers to use for data loading
         batch_size: int = 64, # batch size to train EEGClip model
+        crossval: bool = False,
+        folds_nb: int = 5,
+        fold_idx: int = 0 # (0 to 4) fold idx of the validation set'
                     ):
 
     nailcluster = (socket.gethostname() == "vs3-0") # check if we are on the nail cluster or on kislurm
@@ -102,21 +105,45 @@ def run_training(
     # TODO : split using train and test splits instead
     # TODO : maybe load TUH now on top of TUH Abnormal ?
 
-    subject_datasets = dataset.split('subject')
-    n_subjects = len(subject_datasets)
-    n_subjects
-    keys = list(subject_datasets.keys())
-    train_keys = keys[:int(n_subjects * 0.70)]
-    valid_keys = keys[int(n_subjects * 0.70):n_subjects]
+    if crossval:
+        subject_datasets = dataset.split('subject')
+        n_subjects = len(subject_datasets)
+        print(n_subjects)
+        keys = list(subject_datasets.keys())
 
+        folds = np.array_split(keys, folds_nb)
 
-    train_sets = [d for k in train_keys for d in subject_datasets[k].datasets]
-    train_set = BaseConcatDataset(train_sets)
+        train_keys = np.concatenate([folds[i] for i in range(folds_nb) if i != fold_idx])
+        valid_keys = folds[fold_idx]
+        
+        #train_keys = keys[:int(n_subjects * 0.70)]
+        #valid_keys = keys[int(n_subjects * 0.70):n_subjects]
 
-    valid_sets = [d for k in valid_keys for d in subject_datasets[k].datasets]
-    valid_set = BaseConcatDataset(valid_sets)
+        print(len(train_keys), len(valid_keys))
 
+        train_sets = [d for k in train_keys for d in subject_datasets[k].datasets]
+        train_set = BaseConcatDataset(train_sets)
 
+        valid_sets = [d for k in valid_keys for d in subject_datasets[k].datasets]
+        valid_set = BaseConcatDataset(valid_sets)
+    
+    else : 
+        
+        """
+        train_set = dataset.split('train')['True']
+        test_set = dataset.split('train')['False']
+        subject_datasets = whole_train_set.split('subject')
+        n_subjects = len(subject_datasets)
+
+        n_split = int(np.round(n_subjects * 0.75))
+        keys = list(subject_datasets.keys())
+        train_sets = [d for i in range(n_split) for d in subject_datasets[keys[i]].datasets]
+        train_set = BaseConcatDataset(train_sets)
+        valid_sets = [d for i in range(n_split, n_subjects) for d in subject_datasets[keys[i]].datasets]
+        valid_set = BaseConcatDataset(valid_sets)
+        """
+        train_set = dataset.split('train')['True']
+        valid_set = dataset.split('train')['False'] # wrong. but wont be used anyways.
 
     window_train_set = create_fixed_length_windows(
         train_set,
@@ -162,7 +189,8 @@ def run_training(
 
     wandb_logger = WandbLogger(project="EEGClip",
                                save_dir = results_dir + '/wandb',
-                               log_model=True
+                               log_model=True,
+                               #checkpoint_name = 'checkpoint.ckpt',
                                )
 
     # ## Training
@@ -185,7 +213,8 @@ def run_training(
                 train_loader, 
                 valid_loader
             )
-    
+    #trainer.save_checkpoint(results_dir + "/models/crossval/EEGClip_fold_"+str(folds_nb)+'_'+str(fold_idx)+".ckpt")
+    trainer.save_checkpoint(results_dir + "/models/EEGClip_100.ckpt")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Train EEGClip on TUH EEG dataset.')
@@ -207,7 +236,12 @@ if __name__ == "__main__":
                         help='Whether to use string sampling : random sampling of sentences in each batch')
     parser.add_argument('--num_workers', type=int, default=16,
                         help='Number of workers to use for data loading.')
-
+    parser.add_argument('--crossval', action='store_true',
+                        help='Whether to do crossvalidation')
+    parser.add_argument('--folds_nb', type=int, default=5,
+                        help='nb of folds for cross-validation')
+    parser.add_argument('--fold_idx', type=int, default=0,
+                        help='(0 to folds_nb - 1) valid fold index')
     args = parser.parse_args()
 
 
@@ -227,4 +261,7 @@ if __name__ == "__main__":
         string_sampling=args.string_sampling,
         projected_emb_dim = args.projected_emb_dim,
         num_fc_layers = args.num_fc_layers,
+        crossval=args.crossval,
+        folds_nb = args.folds_nb,
+        fold_idx = args.fold_idx
             )

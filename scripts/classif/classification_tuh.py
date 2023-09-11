@@ -27,7 +27,7 @@ from pytorch_lightning.callbacks import ModelCheckpoint
 
 from EEGClip.classifier_models import EEGClassifierModel
 from EEGClip.clip_models import EEGClipModel
-from EEGClip_config import model_paths
+import EEGClip_config
 
 
 """
@@ -60,12 +60,19 @@ if __name__ == "__main__":
                         help='weights from pretrained model, or random')    
     parser.add_argument('--freeze_encoder', action='store_true',
                         help='Whether to freeze encoder during training')
+    parser.add_argument('--seed', type=int, default=20210325,
+                        help='random seed')
+    parser.add_argument('--crossval', action='store_true',
+                        help='Whether to do crossvalidation')
+    parser.add_argument('--folds_nb', type=int, default=5,
+                        help='nb of folds for cross-validation')
+    parser.add_argument('--fold_idx', type=int, default=0,
+                        help='(0 to folds_nb - 1) valid fold index')
     parser.add_argument('--train_frac', type=int, default=1,
                         help='factor of division for the training set (few shot learning)')
     parser.add_argument('--exclude_eegclip_train_set', action='store_true',
                         help='excludes the first 70% subjects for training and testing')
-    parser.add_argument('--seed', type=int, default=20210325,
-                        help='random seed')
+
     args = parser.parse_args()
 
     num_workers = args.num_workers
@@ -97,8 +104,8 @@ if __name__ == "__main__":
     num_workers = args.num_workers
     
 
-    results_dir = config.results_dir
-    tuh_data_dir = config.tuh_data_dir
+    results_dir = EEGClip_config.results_dir
+    tuh_data_dir = EEGClip_config.tuh_data_dir
 
     # TODO : use get_output_shape (requires to load the model first)
     n_preds_per_input = 519 #get_output_shape(eeg_classifier_model, n_chans, input_window_samples)[2]
@@ -109,6 +116,9 @@ if __name__ == "__main__":
     cuda = torch.cuda.is_available()
     set_random_seeds(seed=seed, cuda=cuda)
     torch.backends.cudnn.benchmark = True
+
+    print(target_name)
+    print("freeze encoder : ", freeze_encoder)
 
     # ## Load data
     dataset = TUHAbnormal(
@@ -146,48 +156,48 @@ if __name__ == "__main__":
     # TODO : split using train and test splits instead
     # TODO : maybe load TUH now on top of TUH Abnormal ?
 
-    
-    #dataset = dataset.split('train')['True']
-    """
-    subject_datasets = dataset.split('subject')
-    n_subjects = len(subject_datasets)
+    if args.crossval : 
+        subject_datasets = dataset.split('subject')
+        n_subjects = len(subject_datasets)
+        n_subjects
+        keys = list(subject_datasets.keys())
+        
+        folds = np.array_split(keys, args.folds_nb)
 
-    print("Nb subjects loaded : ", n_subjects)
-    
-    
-    n_split = int(np.round(n_subjects * 0.75))
-    keys = list(subject_datasets.keys())
-    train_keys = keys[:n_split]
-    train_keys = random.sample(train_keys, len(train_keys) // train_frac)
-    train_sets = [d for k in train_keys for d in subject_datasets[k].datasets]
-    print("Final nb train subjects loaded : ",len(train_sets))
-    train_set = BaseConcatDataset(train_sets)
+        train_keys = np.concatenate([folds[i] for i in range(args.folds_nb) if i != args.fold_idx])
+        valid_keys = folds[args.fold_idx]
 
-    valid_keys = keys[n_split:]
-    valid_sets = [d for k in valid_keys for d in subject_datasets[k].datasets]
-    print("Nb valid subjects loaded : ",len(valid_sets))
-    valid_set = BaseConcatDataset(valid_sets)
-    """
-    subject_datasets = dataset.split('subject')
-    n_subjects = len(subject_datasets)
-    n_subjects
-    keys = list(subject_datasets.keys())
-    if exclude_eegclip_train_set : 
-        train_keys = keys[int(n_subjects * 0.70):int(n_subjects * 0.90)]
-        valid_keys = keys[int(n_subjects * 0.90):n_subjects]
+        if args.exclude_eegclip_train_set :
+            train_keys, valid_keys = valid_keys[:len(valid_keys)//2],valid_keys[len(valid_keys)//2:]
+
+        print(len(train_keys), len(valid_keys))
+
+        #subsample training set
+        train_keys = random.sample(list(train_keys), len(train_keys) // train_frac) 
+
+        train_sets = [d for k in train_keys for d in subject_datasets[k].datasets]
+        train_set = BaseConcatDataset(train_sets)
+
+        valid_sets = [d for k in valid_keys for d in subject_datasets[k].datasets]
+        valid_set = BaseConcatDataset(valid_sets)
+
     else : 
-        train_keys = keys[:int(n_subjects * 0.70)]
-        valid_keys = keys[int(n_subjects * 0.70):n_subjects]
+        
+        """
+        train_set = dataset.split('train')['True']
+        test_set = dataset.split('train')['False']
+        subject_datasets = whole_train_set.split('subject')
+        n_subjects = len(subject_datasets)
 
-    #subsample training set
-    train_keys = random.sample(train_keys, len(train_keys) // train_frac) 
-
-    train_sets = [d for k in train_keys for d in subject_datasets[k].datasets]
-    train_set = BaseConcatDataset(train_sets)
-
-    valid_sets = [d for k in valid_keys for d in subject_datasets[k].datasets]
-    valid_set = BaseConcatDataset(valid_sets)
-
+        n_split = int(np.round(n_subjects * 0.75))
+        keys = list(subject_datasets.keys())
+        train_sets = [d for i in range(n_split) for d in subject_datasets[keys[i]].datasets]
+        train_set = BaseConcatDataset(train_sets)
+        valid_sets = [d for i in range(n_split, n_subjects) for d in subject_datasets[keys[i]].datasets]
+        valid_set = BaseConcatDataset(valid_sets)
+        """
+        train_set = dataset.split('train')['True']
+        valid_set = dataset.split('train')['False'] # wrong. but wont be used anyways.
 
     window_train_set = create_fixed_length_windows(
         train_set,
@@ -229,7 +239,7 @@ if __name__ == "__main__":
         shuffle=False,
         num_workers=num_workers,
         drop_last=False)
-
+    print(len(train_loader.dataset))
     print(len(valid_loader.dataset))
     
 
@@ -238,7 +248,7 @@ if __name__ == "__main__":
 
     # ## Create model
     if weights == "eegclip":
-            eegclipmodel = EEGClipModel.load_from_checkpoint(model_paths["eegclip"])
+            eegclipmodel = EEGClipModel.load_from_checkpoint(results_dir + "/models/EEGClip_100.ckpt")
             EEGEncoder = torch.nn.Sequential(eegclipmodel.eeg_encoder,eegclipmodel.eeg_projection)
             
             """# classifier should have the same shape everywhere for fair comparison
@@ -271,15 +281,17 @@ if __name__ == "__main__":
             )
 
         to_dense_prediction_model(EEGEncoder)
-        eegclassifiermodel = EEGClassifierModel.load_from_checkpoint(model_paths[weights],EEGEncoder=EEGEncoder, encoder_output_dim = 64)
+        eegclassifiermodel = EEGClassifierModel.load_from_checkpoint(results_dir + "/models/"+weights+"_100.ckpt",EEGEncoder=EEGEncoder, encoder_output_dim = 64)
 
         EEGEncoder = eegclassifiermodel.encoder
 
 
     print('encoder_output_dim', encoder_output_dim)
             # ## Run Training
-    wandb_logger = WandbLogger(project="EEGClip_few_shot",
+    wandb_logger = WandbLogger(project="EEGClip_classif",
                         save_dir = results_dir + '/wandb',
+
+
                         log_model=False,
                         )
 
@@ -309,3 +321,5 @@ if __name__ == "__main__":
         train_loader,
         valid_loader,
     )
+
+    trainer.save_checkpoint(results_dir + "/models/under_50_100.ckpt")
