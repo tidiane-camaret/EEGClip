@@ -190,8 +190,16 @@ if __name__ == "__main__":
         n_subjects = len(subject_datasets)
 
         n_split = int(np.round(n_subjects * 0.75))
-        keys = list(subject_datasets.keys())
-        train_sets = [d for i in range(n_split) for d in subject_datasets[keys[i]].datasets]
+        train_keys = list(subject_datasets.keys())
+        
+        # first 75% of training set
+        #train_sets = [d for i in range(n_split) for d in subject_datasets[train_keys[i]].datasets]
+        
+        # last 25% of training set
+        train_sets = [d for i in range(n_split, n_subjects) for d in subject_datasets[train_keys[i]].datasets]
+        
+        
+        train_set = random.sample(list(train_sets), len(train_sets) // train_frac) 
         train_set = BaseConcatDataset(train_sets)
 
         valid_set = dataset.split('train')['False']
@@ -278,15 +286,13 @@ if __name__ == "__main__":
                 layer.reset_parameters()
    
     else:
-        EEGEncoder = Deep4Net(
-            in_chans=n_chans,
-            n_classes=encoder_output_dim, 
-            input_window_samples=None,
-            final_conv_length=2,
-            stride_before_pool=True,
-            )
-
-        to_dense_prediction_model(EEGEncoder)
+        eegclipmodel = EEGClipModel.load_from_checkpoint(results_dir + "/models/EEGClip_75.ckpt")
+        #print(eegclipmodel)
+        EEGEncoder = torch.nn.Sequential(eegclipmodel.eeg_encoder,eegclipmodel.eeg_projection)
+        for layer in EEGEncoder.modules():
+            if hasattr(layer, 'reset_parameters'):
+                #print(layer)
+                layer.reset_parameters()
         eegclassifiermodel = EEGClassifierModel.load_from_checkpoint(results_dir + "/models/"+weights+"_75.ckpt",EEGEncoder=EEGEncoder, encoder_output_dim = 64)
 
         EEGEncoder = eegclassifiermodel.encoder
@@ -294,7 +300,7 @@ if __name__ == "__main__":
 
     print('encoder_output_dim', encoder_output_dim)
             # ## Run Training
-    wandb_logger = WandbLogger(project="EEGClip_classif",
+    wandb_logger = WandbLogger(project="EEGClip_few_shot",
                         save_dir = results_dir + '/wandb',
                         log_model=False,
                         )
