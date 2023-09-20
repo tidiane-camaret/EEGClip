@@ -1,6 +1,4 @@
 import pandas as pd 
-import wandb
-api = wandb.Api()
 import numpy as np
 
 runs_df = pd.read_csv("results/classif_crossval.csv")
