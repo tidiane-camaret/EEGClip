@@ -199,7 +199,8 @@ if __name__ == "__main__":
         train_sets = [d for i in range(n_split, n_subjects) for d in subject_datasets[train_keys[i]].datasets]
         
         
-        train_set = random.sample(list(train_sets), len(train_sets) // train_frac) 
+        train_sets = random.sample(list(train_sets), len(train_sets) // train_frac) 
+        print('nb train subjects : ', len(train_sets))
         train_set = BaseConcatDataset(train_sets)
 
         valid_set = dataset.split('train')['False']
@@ -244,8 +245,8 @@ if __name__ == "__main__":
         shuffle=False,
         num_workers=num_workers,
         drop_last=False)
-    print(len(train_loader.dataset))
-    print(len(valid_loader.dataset))
+    print("size train set : ", len(train_loader.dataset))
+    print("size valid set : ", len(valid_loader.dataset))
     
 
     encoder_output_dim = 64 # size of the last layer of the EEG decoder
@@ -300,7 +301,7 @@ if __name__ == "__main__":
 
     print('encoder_output_dim', encoder_output_dim)
             # ## Run Training
-    wandb_logger = WandbLogger(project="EEGClip_few_shot",
+    wandb_logger = WandbLogger(project="EEGClip_few_shot_2",
                         save_dir = results_dir + '/wandb',
                         log_model=False,
                         )
