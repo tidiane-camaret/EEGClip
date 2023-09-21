@@ -130,6 +130,7 @@ def run_training(
     else : 
         
         train_set = dataset.split('train')['True']
+        
         subject_datasets = train_set.split('subject')
         n_subjects = len(subject_datasets)
 
