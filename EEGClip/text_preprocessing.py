@@ -14,7 +14,7 @@ def text_preprocessing(description_df:pd.DataFrame, processed_categories:list = 
   # reports were already painstakingly processed by Gemeinl
   # see https://github.com/gemeinl/auto-eeg-diagnosis-comparison/blob/master/code/physician_reports.ipynb
 
-  current_dir = '/home/jovyan/EEGClip/scripts/text_preprocessing/'
+  current_dir = '/home/jovyan/EEGClip/EEGClip/'
   # dataframe created by the TUH class
   #description_df=pd.read_csv(current_dir + '/tuh_description.csv')
   # processed dataframe
@@ -32,10 +32,10 @@ def text_preprocessing(description_df:pd.DataFrame, processed_categories:list = 
 
 
   # new column REPORT containing all the non-empty processed categories as : CATEGORY: TEXT
-  df['REPORT'] = ''
+  df['report'] = ''
   for category in processed_categories:
     for i, value in enumerate(df[category]):
       if not pd.isnull(value):
-        df.loc[i,'REPORT'] += category + ': ' + str(value) + ', '
+        df.loc[i,'report'] += category + ': ' + str(value) + ', '
 
   return df

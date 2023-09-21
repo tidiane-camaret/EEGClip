@@ -21,6 +21,7 @@ from pytorch_lightning.callbacks import ModelCheckpoint
 
 from EEGClip.clip_models import EEGClipModel
 import EEGClip_config
+from EEGClip.text_preprocessing import text_preprocessing
 
 import mne
 mne.set_log_level('ERROR')  # avoid messages everytime a window is extracted
@@ -33,6 +34,8 @@ This script is used to train the EEGClip model on the TUH EEG dataset.
 
 def run_training(
         lr: float, # learning rate to train EEGClip model
+        lr_frac_lm: float, # learning rate frac for the text encoder
+        text_encoder_name: str, # name of text encoder
         weight_decay: float, # weight decay to train EEGClip model
         string_sampling: bool, # whether to use string sampling
         projected_emb_dim: int, # dimension of projected embeddings
@@ -80,6 +83,10 @@ def run_training(
     
     # ## Preprocessing
 
+    # text preprocessing
+    dataset.set_description(text_preprocessing(dataset.description), overwrite=True)
+
+    # EEG preprocessing
     ar_ch_names = sorted([
         'EEG A1-REF', 'EEG A2-REF',
         'EEG FP1-REF', 'EEG FP2-REF', 'EEG F3-REF', 'EEG F4-REF', 'EEG C3-REF',
@@ -130,16 +137,15 @@ def run_training(
     else : 
         
         train_set = dataset.split('train')['True']
+        """ use only first 75 percent of the train ds
         subject_datasets = train_set.split('subject')
         n_subjects = len(subject_datasets)
 
         n_split = int(np.round(n_subjects * 0.75))
         keys = list(subject_datasets.keys())
         train_sets = [d for i in range(n_split) for d in subject_datasets[keys[i]].datasets]
-        #train_sets = [d for i in range(n_split, n_subjects) for d in subject_datasets[keys[i]].datasets]
-
         train_set = BaseConcatDataset(train_sets)
-
+        """
 
         valid_set = dataset.split('train')['False'] # wrong. but wont be used anyways.
 
@@ -203,16 +209,22 @@ def run_training(
                 EEGClipModel(
                          n_chans=n_chans,
                          lr = lr, 
+                         lr_frac_lm = lr_frac_lm,
                          weight_decay=weight_decay,
                          string_sampling = string_sampling,
                          projected_emb_dim = projected_emb_dim,
                          num_fc_layers = num_fc_layers,
+                         text_encoder_name = text_encoder_name,
                          ),
                 train_loader, 
                 valid_loader
             )
     #trainer.save_checkpoint(results_dir + "/models/crossval/EEGClip_fold_"+str(folds_nb)+'_'+str(fold_idx)+".ckpt")
-    trainer.save_checkpoint(results_dir + "/models/EEGClip_75.ckpt")
+    trainer.save_checkpoint(results_dir + "/models/EEGClip_100_"+
+                                            text_encoder_name +
+                                            "_" +
+                                            str(lr_frac_lm)+
+                                            ".ckpt")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Train EEGClip on TUH EEG dataset.')
@@ -228,6 +240,10 @@ if __name__ == "__main__":
                         help='nb layers in the projection modules')
     parser.add_argument('--lr', type=float, default=5e-3,
                         help='Learning rate to train EEGClip model.')
+    parser.add_argument('--lr_frac_lm', type=float, default=0,
+                        help='Learning rate for the LM module (as a fraction of --lr).')
+    parser.add_argument('--text_encoder_name', type=str, default="bert-base-uncased",
+                        help='name of the text encoder')
     parser.add_argument('--weight_decay', type=float, default=5e-4,
                         help='Weight decay to train EEGClip model.')
     parser.add_argument('--string_sampling', action='store_true',
@@ -255,8 +271,10 @@ if __name__ == "__main__":
         num_workers=args.num_workers,
         batch_size=args.batch_size,
         lr=args.lr,
+        lr_frac_lm = args.lr_frac_lm,
         weight_decay=args.weight_decay,
         string_sampling=args.string_sampling,
+        text_encoder_name = args.text_encoder_name,
         projected_emb_dim = args.projected_emb_dim,
         num_fc_layers = args.num_fc_layers,
         crossval=args.crossval,

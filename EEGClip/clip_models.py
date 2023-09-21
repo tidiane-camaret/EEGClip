@@ -43,13 +43,13 @@ class TextEncoder(nn.Module):
                  text_encoder_name,
                  text_encoder_pretrained,
                  text_encoder_trainable,
-                 string_sampling,
-                 lookup_strings = True #use previously computed embeddings
+                 string_sampling = False,
+                 lookup_strings = False #use previously computed embeddings
                 ):
         super().__init__()
         self.string_sampling = string_sampling
         self.lookup_strings = lookup_strings
-        """
+
         if text_encoder_pretrained:
             self.model = AutoModel.from_pretrained(text_encoder_name, output_hidden_states=True)
         else:
@@ -62,7 +62,7 @@ class TextEncoder(nn.Module):
         self.tokenizer = AutoTokenizer.from_pretrained(text_encoder_name)
         
         self.target_token_idx = 0
-        """
+
         #TODO : add a config file for the path
         embs_df = pd.read_csv(EEGClip_config.embs_df_path)
         embs_name = "embs_instructor"
@@ -85,7 +85,7 @@ class TextEncoder(nn.Module):
         if self.string_sampling: # randomly sample strings from the report
             for i, string in enumerate(string_batch):
                 # look for the positions of \n occurences
-                newlines = [m.start() for m in re.finditer('\n', string)]
+                newlines = [m.start() for m in re.finditer(',', string)]
                 newlines.extend([0, len(string)])
                 # sample a random position
                 start, end = 0,0
@@ -237,6 +237,7 @@ class EEGClipModel(pl.LightningModule):
                  dropout=0.1,
                  num_fc_layers=1,
                  lr=1e-3,
+                 lr_frac_lm = 0,
                  weight_decay=1e-6,
                  n_chans=21,
                  **kwargs
@@ -245,6 +246,7 @@ class EEGClipModel(pl.LightningModule):
         super().__init__()
         self.save_hyperparameters()
         self.lr = lr
+        self.lr_lm = self.lr * lr_frac_lm
         self.weight_decay = weight_decay
         self.n_chans = n_chans
 
@@ -282,10 +284,10 @@ class EEGClipModel(pl.LightningModule):
         # save features and labels for classification
         self.features_train = []
         self.labels_train = []
-        self.ids_train = []
+
         self.features_valid = []
         self.labels_valid = []
-        self.ids_valid = []
+
 
         self.report_list = []
 
@@ -304,15 +306,12 @@ class EEGClipModel(pl.LightningModule):
 
         # Extract the labels from the description string
         # TODO : add other labels
-        string_batch = [string[string.find('IMPRESSION:'):string.find('CLINICAL CORRELATION:')] for string in string_batch]
-        labels = [1 if "abnormal" in string.lower() else 0 for string in string_batch]
+        string_batch = [re.search(r'pathological: (\w+)', string).group(1) for string in string_batch]
+        labels = [1 if "True" in string.lower() else 0 for string in string_batch]
         #labels = [0 if "seizure" not in l.lower() or "no seizure" in l.lower() else 1 for l in string_batch]
         labels = torch.IntTensor(labels).to(CFG.device)
 
-        #print("SHAPE OF ID BATCH: ", id_batch[0].shape)
-        ids = id_batch[0]
-
-        return eeg_features, eeg_features_proj, text_features, text_features_proj, labels, ids
+        return eeg_features, eeg_features_proj, text_features, text_features_proj, labels
 
 
     def loss_calculation(self, eeg_features_proj, text_features_proj):
@@ -329,10 +328,10 @@ class EEGClipModel(pl.LightningModule):
         return loss
     
     def training_step(self, batch, batch_idx):
-        eeg_features, eeg_features_proj, text_features, text_features_proj, labels, ids = self.forward(batch)
+        eeg_features, eeg_features_proj, text_features, text_features_proj, labels = self.forward(batch)
         self.features_train.append(eeg_features_proj)
         self.labels_train.append(labels)
-        self.ids_train.append(ids)
+
         loss = self.loss_calculation(eeg_features_proj, text_features_proj)
         self.log('train_loss', loss, prog_bar=True)
 
@@ -341,10 +340,10 @@ class EEGClipModel(pl.LightningModule):
 
 
     def validation_step(self, batch, batch_idx):
-        eeg_features, eeg_features_proj, text_features, text_features_proj, labels, ids = self.forward(batch)
+        eeg_features, eeg_features_proj, text_features, text_features_proj, labels= self.forward(batch)
         self.features_valid.append(eeg_features_proj)
         self.labels_valid.append(labels)
-        self.ids_valid.append(ids)
+
         loss = self.loss_calculation(eeg_features_proj, text_features_proj)
         self.log('val_loss', loss, prog_bar=True)
 
@@ -356,7 +355,7 @@ class EEGClipModel(pl.LightningModule):
         #   pickle.dump(report_list, f)
 
         features_valid = torch.cat(self.features_valid).cpu()
-        ids_valid = torch.cat(self.ids_valid).cpu()
+
         labels_valid = torch.cat(self.labels_valid).cpu()
 
         equal_to_extracted = (labels_valid == torch.cat(self.labels_valid).cpu())
@@ -366,7 +365,7 @@ class EEGClipModel(pl.LightningModule):
 
         if self.features_train :
             features_train = torch.cat(self.features_train).cpu()
-            ids_train = torch.cat(self.ids_train).cpu()
+
             labels_train = torch.cat(self.labels_train).cpu()
             equal_to_extracted = (labels_train == torch.cat(self.labels_train).cpu())
             print("proportion of correctly extracted labels (valid): ", torch.sum(equal_to_extracted)/equal_to_extracted.shape[0])
@@ -388,15 +387,18 @@ class EEGClipModel(pl.LightningModule):
         self.features_valid.clear()
         self.labels_valid.clear()
 
-        self.ids_train.clear()
-        self.ids_valid.clear()
         
         return None
 
     def configure_optimizers(self):
-        optimizer = torch.optim.AdamW(self.parameters(), lr = self.lr, weight_decay=self.weight_decay)
+        optimizer = torch.optim.AdamW(
+            list(self.eeg_encoder.parameters())+
+            list(self.eeg_projection.parameters())+
+            list(self.text_projection.parameters()), 
+            lr = self.lr, weight_decay=self.weight_decay)
+        optimizer_lm = torch.optim.AdamW(self.text_encoder.parameters(), lr = self.lr, weight_decay=self.weight_decay)
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max = self.trainer.max_epochs - 1)
-        return [optimizer], [scheduler]
+        return [optimizer, optimizer_lm], [scheduler]
 
 """
 def on_save_checkpoint(checkpoint):
