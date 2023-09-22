@@ -25,6 +25,7 @@ import pytorch_lightning as pl
 
 import EEGClip_config
 
+medication_list = ["keppra", "dilantin", "depakote"]
 
 class CFG:
     """Configuration class for the EEGClip model
@@ -307,10 +308,20 @@ class EEGClipModel(pl.LightningModule):
 
         # Extract the labels from the description string
         # TODO : add other labels
-        string_batch = [re.search(r'pathological: (\w+)', string).group(1) for string in string_batch]
-        labels = [1 if "true" in string.lower() else 0 for string in string_batch]
-        #labels = [0 if "seizure" not in l.lower() or "no seizure" in l.lower() else 1 for l in string_batch]
-        labels = torch.IntTensor(labels).to(CFG.device)
+        
+        labels_pathological = [1 if "true" in re.search(r'pathological: (\w+)', string).group(1).lower() else 0 for string in string_batch]
+        labels_gender = [1 if "m" in re.search(r'gender: (\w+)', string).group(1).lower() else 0 for string in string_batch]
+        labels_under_50 = [1 if int(re.search(r'age: (\d+)', string).group(1)) < 50 else 0 for string in string_batch]
+        labels_med = [1 if any([med in string.lower() for med in medication_list]) else 0 for string in string_batch]
+        
+        # stack the labels into an int tensor
+
+        labels = torch.stack([torch.IntTensor(labels_pathological),
+                              torch.IntTensor(labels_gender),
+                                torch.IntTensor(labels_under_50),
+                                torch.IntTensor(labels_med)
+                                ], dim=1).to(CFG.device)
+        
 
         return eeg_features, eeg_features_proj, text_features, text_features_proj, labels
 
@@ -376,11 +387,19 @@ class EEGClipModel(pl.LightningModule):
 
             # loop through classifiers
             for classifier_name, classifier in CFG.classifiers_dict.items():
-                classifier.fit(features_train, labels_train)
-                pred_labels = classifier.predict(features_valid)
-                accuracy = balanced_accuracy_score(labels_valid.tolist(), pred_labels)
-                self.log(classifier_name, accuracy, prog_bar=True)
-                print(classifier_name, accuracy)
+                for label_idx in range(labels_train.shape[1]):
+                    classifier.fit(features_train, labels_train[:,label_idx])
+                    preds = classifier.predict(features_valid)
+                    balanced_acc = balanced_accuracy_score(labels_valid[:,label_idx], preds)
+                    self.log(f'val_balanced_acc_{classifier_name}_{label_idx}', balanced_acc, prog_bar=True)
+                    """
+                    classifier.fit(features_train, labels_train)
+                    pred_labels = classifier.predict(features_valid)
+                    accuracy = balanced_accuracy_score(labels_valid.tolist(), pred_labels)
+                    self.log(classifier_name, accuracy, prog_bar=True)
+                    print(classifier_name, accuracy)
+                    """
+
 
         self.features_train.clear()
         self.labels_train.clear()
@@ -392,16 +411,6 @@ class EEGClipModel(pl.LightningModule):
         return None
 
     def configure_optimizers(self):
-        """
-        optimizer = torch.optim.AdamW(
-            list(self.eeg_encoder.parameters())+
-            list(self.eeg_projection.parameters())+
-            list(self.text_projection.parameters()), 
-            lr = self.lr, weight_decay=self.weight_decay)
-        optimizer_lm = torch.optim.AdamW(self.text_encoder.parameters(), lr = self.lr, weight_decay=self.weight_decay)
-        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max = self.trainer.max_epochs - 1)
-        return [optimizer, optimizer_lm], [scheduler]
-        """
 
         params = list(self.named_parameters())
 
@@ -418,16 +427,11 @@ class EEGClipModel(pl.LightningModule):
 
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max = self.trainer.max_epochs - 1)
         return [optimizer], [scheduler]
-        #optimizer = torch.optim.AdamW(self.parameters(), lr = self.lr, weight_decay=)
         
 
-"""
+
 def on_save_checkpoint(checkpoint):
     for key in list(checkpoint['state_dict'].keys()):
         if "text_encoder" in key:
             print('deleting ', key)
             del checkpoint['state_dict'][key]
-    # pop the backbone here using custom logic
-    del checkpoint['state_dict'][backbone_keys]
-
-"""
