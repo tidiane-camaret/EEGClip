@@ -56,6 +56,7 @@ class TextEncoder(nn.Module):
             self.model = AutoModel(config=AutoConfig())
         
         #self.model = SentenceTransformer("hkunlp/instructor-xl")
+        print("trainable text encoder : ", text_encoder_trainable)
         for param in self.model.parameters():
             param.requires_grad = text_encoder_trainable
         
@@ -63,20 +64,20 @@ class TextEncoder(nn.Module):
         
         self.target_token_idx = 0
 
-        #TODO : add a config file for the path
-        embs_df = pd.read_csv(EEGClip_config.embs_df_path)
-        embs_name = "embs_instructor"
-        for r in range(len(embs_df)):
-            re = copy.copy(embs_df[embs_name][r])
-            # convert the string to array
-            re = re.replace('[', '')
-            re = re.replace(']', '')
-            re = re.replace(',', '')
-            re = re.split()
-            re = [float(i) for i in re]
-            embs_df[embs_name][r] = re
+        if self.lookup_strings: 
+            embs_df = pd.read_csv(EEGClip_config.embs_df_path)
+            embs_name = "embs_instructor"
+            for r in range(len(embs_df)):
+                re = copy.copy(embs_df[embs_name][r])
+                # convert the string to array
+                re = re.replace('[', '')
+                re = re.replace(']', '')
+                re = re.replace(',', '')
+                re = re.split()
+                re = [float(i) for i in re]
+                embs_df[embs_name][r] = re
 
-        self.embs_df = embs_df
+            self.embs_df = embs_df
 
 
     def forward(self, string_batch):
@@ -230,7 +231,7 @@ class EEGClipModel(pl.LightningModule):
                  projected_emb_dim=64,
                  text_encoder_name="bert-base-uncased",
                  text_encoder_pretrained=True,
-                 text_encoder_trainable=False,
+                 text_encoder_trainable=True,
                  eeg_model_pretrained=False,
                  eeg_model_trainable=True,
                  string_sampling=False,
@@ -307,7 +308,7 @@ class EEGClipModel(pl.LightningModule):
         # Extract the labels from the description string
         # TODO : add other labels
         string_batch = [re.search(r'pathological: (\w+)', string).group(1) for string in string_batch]
-        labels = [1 if "True" in string.lower() else 0 for string in string_batch]
+        labels = [1 if "true" in string.lower() else 0 for string in string_batch]
         #labels = [0 if "seizure" not in l.lower() or "no seizure" in l.lower() else 1 for l in string_batch]
         labels = torch.IntTensor(labels).to(CFG.device)
 
@@ -391,6 +392,7 @@ class EEGClipModel(pl.LightningModule):
         return None
 
     def configure_optimizers(self):
+        """
         optimizer = torch.optim.AdamW(
             list(self.eeg_encoder.parameters())+
             list(self.eeg_projection.parameters())+
@@ -399,6 +401,25 @@ class EEGClipModel(pl.LightningModule):
         optimizer_lm = torch.optim.AdamW(self.text_encoder.parameters(), lr = self.lr, weight_decay=self.weight_decay)
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max = self.trainer.max_epochs - 1)
         return [optimizer, optimizer_lm], [scheduler]
+        """
+
+        params = list(self.named_parameters())
+
+        def is_backbone(n): return 'text_encoder' in n
+
+        grouped_parameters = [
+            {"params": [p for n, p in params if is_backbone(n)], 'lr': self.lr_lm},
+            {"params": [p for n, p in params if not is_backbone(n)], 'lr': self.lr},
+        ]
+
+        optimizer = torch.optim.AdamW(
+            grouped_parameters, lr=self.lr, weight_decay=self.weight_decay
+        )
+
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max = self.trainer.max_epochs - 1)
+        return [optimizer], [scheduler]
+        #optimizer = torch.optim.AdamW(self.parameters(), lr = self.lr, weight_decay=)
+        
 
 """
 def on_save_checkpoint(checkpoint):

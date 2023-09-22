@@ -41,6 +41,7 @@ def run_training(
         projected_emb_dim: int, # dimension of projected embeddings
         num_fc_layers: int, # number of fully connected layers
         target_name: str = "report", # target to train EEGClip model on
+        text_encoder_trainable: bool = True,
         n_recordings_to_load: int = 2993, # number of recordings to load from TUH EEG dataset
         n_epochs: int = 8, # number of epochs to train EEGClip model
         num_workers: int = 16, # number of workers to use for data loading
@@ -79,7 +80,7 @@ def run_training(
         target_name=target_name,  # age, gender, pathology
         preload=False,
         add_physician_reports=True,
-        n_jobs=1)
+        n_jobs=8)
     
     # ## Preprocessing
 
@@ -200,8 +201,9 @@ def run_training(
     # ## Training
     trainer = Trainer(
             default_root_dir=results_dir + '/models',
-        devices=1,
-        accelerator="gpu",
+        accelerator="gpu", 
+        devices=1, #TODO : see why using 2 gpus kills the process
+        strategy="auto",
         max_epochs=n_epochs,
         logger=wandb_logger,
         )
@@ -215,6 +217,7 @@ def run_training(
                          projected_emb_dim = projected_emb_dim,
                          num_fc_layers = num_fc_layers,
                          text_encoder_name = text_encoder_name,
+                         text_encoder_trainable = text_encoder_trainable
                          ),
                 train_loader, 
                 valid_loader
@@ -275,6 +278,7 @@ if __name__ == "__main__":
         weight_decay=args.weight_decay,
         string_sampling=args.string_sampling,
         text_encoder_name = args.text_encoder_name,
+        text_encoder_trainable = args.text_encoder_trainable,
         projected_emb_dim = args.projected_emb_dim,
         num_fc_layers = args.num_fc_layers,
         crossval=args.crossval,
