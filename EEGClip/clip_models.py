@@ -379,19 +379,17 @@ class EEGClipModel(pl.LightningModule):
             features_train = torch.cat(self.features_train).cpu()
 
             labels_train = torch.cat(self.labels_train).cpu()
-            equal_to_extracted = (labels_train == torch.cat(self.labels_train).cpu())
-            print("proportion of correctly extracted labels (valid): ", torch.sum(equal_to_extracted)/equal_to_extracted.shape[0])
 
             print("balance in train set : ", torch.sum(labels_train)/labels_train.shape[0])
             print("balance in valid set : ", torch.sum(labels_valid)/labels_valid.shape[0])
 
             # loop through classifiers
             for classifier_name, classifier in CFG.classifiers_dict.items():
-                for label_idx in range(labels_train.shape[1]):
+                for label_idx, label_name in enumerate(['pathological','gender','under_50','medication']):
                     classifier.fit(features_train, labels_train[:,label_idx])
                     preds = classifier.predict(features_valid)
                     balanced_acc = balanced_accuracy_score(labels_valid[:,label_idx], preds)
-                    self.log(f'val_balanced_acc_{classifier_name}_{label_idx}', balanced_acc, prog_bar=True)
+                    self.log(f'val_balanced_acc_{classifier_name}_{label_name}', balanced_acc, prog_bar=True)
                     """
                     classifier.fit(features_train, labels_train)
                     pred_labels = classifier.predict(features_valid)

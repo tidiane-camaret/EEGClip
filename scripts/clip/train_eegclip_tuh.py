@@ -67,7 +67,7 @@ def run_training(
     seed = 20210325  # random seed to make results reproducible    
     set_random_seeds(seed=seed, cuda=cuda)
     torch.backends.cudnn.benchmark = True
-
+    torch.set_num_threads(num_workers)  # Sets the available number of threads
     # apparently this is needed to avoid a deadlock in the DataLoader
     # TODO : check if this is still needed
     # https://github.com/huggingface/transformers/issues/5486
@@ -80,7 +80,7 @@ def run_training(
         target_name=target_name,  # age, gender, pathology
         preload=False,
         add_physician_reports=True,
-        n_jobs=8)
+        n_jobs=num_workers)
     
     # ## Preprocessing
 
@@ -154,7 +154,7 @@ def run_training(
         train_set,
         start_offset_samples=60*sfreq,
         stop_offset_samples=60*sfreq+n_minutes*60*sfreq,
-        preload=True,
+        preload=False,
         window_size_samples=input_window_samples,
         window_stride_samples=n_preds_per_input,
         drop_last_window=True,
@@ -164,7 +164,7 @@ def run_training(
         valid_set,
         start_offset_samples=60*sfreq,
         stop_offset_samples=60*sfreq+n_minutes*60*sfreq,
-        preload=True,
+        preload=False,
         window_size_samples=input_window_samples,
         window_stride_samples=n_preds_per_input,
         drop_last_window=False,
@@ -204,6 +204,7 @@ def run_training(
         accelerator="gpu", 
         devices=1, #TODO : see why using 2 gpus kills the process
         strategy="auto",
+        #strategy="ddp_find_unused_parameters_true",
         max_epochs=n_epochs,
         logger=wandb_logger,
         )
@@ -251,7 +252,7 @@ if __name__ == "__main__":
                         help='Weight decay to train EEGClip model.')
     parser.add_argument('--string_sampling', action='store_true',
                         help='Whether to use string sampling : random sampling of sentences in each batch')
-    parser.add_argument('--num_workers', type=int, default=16,
+    parser.add_argument('--num_workers', type=int, default=20,
                         help='Number of workers to use for data loading.')
     parser.add_argument('--crossval', action='store_true',
                         help='Whether to do crossvalidation')
@@ -278,7 +279,6 @@ if __name__ == "__main__":
         weight_decay=args.weight_decay,
         string_sampling=args.string_sampling,
         text_encoder_name = args.text_encoder_name,
-        text_encoder_trainable = args.text_encoder_trainable,
         projected_emb_dim = args.projected_emb_dim,
         num_fc_layers = args.num_fc_layers,
         crossval=args.crossval,
