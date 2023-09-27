@@ -107,6 +107,9 @@ class TextEncoder(nn.Module):
             embs = torch.Tensor(embs).to(CFG.device)
                 
         else:
+            #print(string_batch)
+            #string_batch = [s.partition("pijule")[2] for s in string_batch]
+            #print(string_batch)
             input_ids = self.tokenizer(string_batch, 
                                     padding=True, 
                                     truncation=True, 
@@ -117,8 +120,6 @@ class TextEncoder(nn.Module):
             
             embs = outputs.last_hidden_state[:,0,:]
         
-
-
         
         return embs
 

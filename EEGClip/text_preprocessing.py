@@ -1,9 +1,9 @@
 import os
 import pandas as pd
 
-def text_preprocessing(description_df:pd.DataFrame, processed_categories:list = None ):
+def text_preprocessing(description_df:pd.DataFrame, processed_categories:str="all" ):
 
-  if processed_categories is None: 
+  if processed_categories == "all": 
     processed_categories = ['age', 'gender', 'pathological', 
                           'IMPRESSION', 'DESCRIPTION OF THE RECORD',
                           'CLINICAL HISTORY', 'MEDICATIONS', 'INTRODUCTION',
@@ -11,6 +11,11 @@ def text_preprocessing(description_df:pd.DataFrame, processed_categories:list = 
                           'TECHNICAL DIFFICULTIES', 'EVENTS', 'CONDITION OF THE RECORDING',
                           'PAST MEDICAL HISTORY', 'TYPE OF STUDY', 'ACTIVATION PROCEDURES',
                           'NOTE']
+  elif processed_categories == "none":
+    processed_categories = []
+    
+  else:
+    processed_categories = [processed_categories]
   # reports were already painstakingly processed by Gemeinl
   # see https://github.com/gemeinl/auto-eeg-diagnosis-comparison/blob/master/code/physician_reports.ipynb
 
@@ -29,13 +34,20 @@ def text_preprocessing(description_df:pd.DataFrame, processed_categories:list = 
 
   df.drop(['new_col',], axis=1, inplace=True)
 
-
-
-  # new column REPORT containing all the non-empty processed categories as : CATEGORY: TEXT
+  # nreport column aggregating the processed data
   df['report'] = ''
+  """
+  Trick for excluding categories but still measure accuracy
+  for category in ["pathological", "age", "gender", "MEDICATIONS"]:
+    for i, value in enumerate(df[category]):
+      if not pd.isnull(value):
+        df.loc[i,'report'] += category + ': ' + str(value) + ', '
+  df['report'] = df['report'] + 'pijule'
+ """
+
   for category in processed_categories:
     for i, value in enumerate(df[category]):
       if not pd.isnull(value):
         df.loc[i,'report'] += category + ': ' + str(value) + ', '
-
+  df['report'].replace('', 'no data', inplace=True)
   return df

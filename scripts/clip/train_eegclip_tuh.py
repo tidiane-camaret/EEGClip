@@ -41,6 +41,7 @@ def run_training(
         projected_emb_dim: int, # dimension of projected embeddings
         num_fc_layers: int, # number of fully connected layers
         target_name: str = "report", # target to train EEGClip model on
+        category: str = "all",
         text_encoder_trainable: bool = True,
         n_recordings_to_load: int = 2993, # number of recordings to load from TUH EEG dataset
         n_epochs: int = 8, # number of epochs to train EEGClip model
@@ -51,6 +52,7 @@ def run_training(
         fold_idx: int = 0 # (0 to 4) fold idx of the validation set'
                     ):
 
+    print("category : ", category)
     nailcluster = (socket.gethostname() == "vs3-0") # check if we are on the nail cluster or on kislurm
 
     results_dir = EEGClip_config.results_dir
@@ -85,7 +87,7 @@ def run_training(
     # ## Preprocessing
 
     # text preprocessing
-    dataset.set_description(text_preprocessing(dataset.description), overwrite=True)
+    dataset.set_description(text_preprocessing(dataset.description, processed_categories = category), overwrite=True)
 
     # EEG preprocessing
     ar_ch_names = sorted([
@@ -194,8 +196,9 @@ def run_training(
 
     wandb_logger = WandbLogger(project="EEGClip",
                                save_dir = results_dir + '/wandb',
-                               log_model=True,
+                               log_model=False,
                                #checkpoint_name = 'checkpoint.ckpt',
+                               tags = ["hpo_category"]
                                )
 
     # ## Training
@@ -223,12 +226,13 @@ def run_training(
                 train_loader, 
                 valid_loader
             )
-    #trainer.save_checkpoint(results_dir + "/models/crossval/EEGClip_fold_"+str(folds_nb)+'_'+str(fold_idx)+".ckpt")
+    """
     trainer.save_checkpoint(results_dir + "/models/EEGClip_100_"+
                                             text_encoder_name +
                                             "_" +
                                             str(lr_frac_lm)+
                                             ".ckpt")
+    """
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Train EEGClip on TUH EEG dataset.')
@@ -248,6 +252,8 @@ if __name__ == "__main__":
                         help='Learning rate for the LM module (as a fraction of --lr).')
     parser.add_argument('--text_encoder_name', type=str, default="bert-base-uncased",
                         help='name of the text encoder')
+    parser.add_argument('--category', type=str, default="all",
+                        help='report category to keep/exclude')
     parser.add_argument('--weight_decay', type=float, default=5e-4,
                         help='Weight decay to train EEGClip model.')
     parser.add_argument('--string_sampling', action='store_true',
@@ -279,9 +285,12 @@ if __name__ == "__main__":
         weight_decay=args.weight_decay,
         string_sampling=args.string_sampling,
         text_encoder_name = args.text_encoder_name,
+        text_encoder_trainable = False,
+        category = args.category,
         projected_emb_dim = args.projected_emb_dim,
         num_fc_layers = args.num_fc_layers,
         crossval=args.crossval,
         folds_nb = args.folds_nb,
         fold_idx = args.fold_idx
+
             )
