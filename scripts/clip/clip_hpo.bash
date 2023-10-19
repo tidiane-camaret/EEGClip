@@ -14,7 +14,7 @@ done
 
 # category tuning
 (
-
+'
 categories=("all" "IMPRESSION" "DESCRIPTION OF THE RECORD" \
                           "CLINICAL HISTORY" "MEDICATIONS" "INTRODUCTION" \
                           "CLINICAL CORRELATION" "HEART RATE" "FINDINGS" "REASON FOR STUDY" \
@@ -26,14 +26,3 @@ do
     /home/jovyan/test_env/bin/python /home/jovyan/EEGClip/scripts/clip/train_eegclip_tuh.py --category "$category" --n_epochs 2
 
 done
-
-'
-
-for projected_emb_dim in 32 64 128 256 521
-do  
-
-
-    /home/jovyan/test_env/bin/python /home/jovyan/EEGClip/scripts/clip/train_eegclip_tuh.py  --text_encoder_name medicalai/ClinicalBERT --projected_emb_dim $projected_emb_dim
-
-
-done 
