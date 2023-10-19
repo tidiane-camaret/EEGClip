@@ -43,6 +43,7 @@ def run_training(
         target_name: str = "report", # target to train EEGClip model on
         category: str = "all",
         text_encoder_trainable: bool = True,
+        text_model_emb_dim: int = 768,
         n_recordings_to_load: int = 2993, # number of recordings to load from TUH EEG dataset
         n_epochs: int = 8, # number of epochs to train EEGClip model
         num_workers: int = 16, # number of workers to use for data loading
@@ -198,7 +199,7 @@ def run_training(
                                save_dir = results_dir + '/wandb',
                                log_model=False,
                                #checkpoint_name = 'checkpoint.ckpt',
-                               tags = ["hpo_category"]
+                               tags = ["hpo_emb_size-"]
                                )
 
     # ## Training
@@ -221,7 +222,8 @@ def run_training(
                          projected_emb_dim = projected_emb_dim,
                          num_fc_layers = num_fc_layers,
                          text_encoder_name = text_encoder_name,
-                         text_encoder_trainable = text_encoder_trainable
+                         text_encoder_trainable = text_encoder_trainable,
+                         text_model_emb_dim = text_model_emb_dim
                          ),
                 train_loader, 
                 valid_loader
@@ -230,9 +232,10 @@ def run_training(
     trainer.save_checkpoint(results_dir + "/models/EEGClip_100_"+
                                             text_encoder_name +
                                             "_" +
-                                            str(lr_frac_lm)+
+                                            str(projected_emb_dim)+
                                             ".ckpt")
     """
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Train EEGClip on TUH EEG dataset.')
@@ -244,6 +247,8 @@ if __name__ == "__main__":
                         help='Batch size to train EEGClip model.')
     parser.add_argument('--projected_emb_dim', type=int, default=64,
                         help='Final embedding size for the EEGClip model.')
+    parser.add_argument('--text_model_emb_dim', type=int, default=768,
+                        help='embedding size for the text model.')
     parser.add_argument('--num_fc_layers', type=int, default=3,
                         help='nb layers in the projection modules')
     parser.add_argument('--lr', type=float, default=5e-3,
@@ -286,6 +291,7 @@ if __name__ == "__main__":
         string_sampling=args.string_sampling,
         text_encoder_name = args.text_encoder_name,
         text_encoder_trainable = False,
+        text_model_emb_dim = args.text_model_emb_dim,
         category = args.category,
         projected_emb_dim = args.projected_emb_dim,
         num_fc_layers = args.num_fc_layers,

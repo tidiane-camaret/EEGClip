@@ -145,3 +145,4 @@ results/wandb
 scripts/cluster/logs
 scripts/hpo/wandb/
 .ckpt
+scripts/text_preprocessing/embs_df.csv

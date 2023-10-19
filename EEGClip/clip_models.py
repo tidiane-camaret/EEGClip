@@ -45,29 +45,18 @@ class TextEncoder(nn.Module):
                  text_encoder_pretrained,
                  text_encoder_trainable,
                  string_sampling = False,
-                 lookup_strings = False #use previously computed embeddings
+                 lookup_strings = True #use previously computed embeddings
                 ):
         super().__init__()
         self.string_sampling = string_sampling
         self.lookup_strings = lookup_strings
+        self.text_encoder_name = text_encoder_name
 
-        if text_encoder_pretrained:
-            self.model = AutoModel.from_pretrained(text_encoder_name, output_hidden_states=True)
-        else:
-            self.model = AutoModel(config=AutoConfig())
-        
-        #self.model = SentenceTransformer("hkunlp/instructor-xl")
-        print("trainable text encoder : ", text_encoder_trainable)
-        for param in self.model.parameters():
-            param.requires_grad = text_encoder_trainable
-        
-        self.tokenizer = AutoTokenizer.from_pretrained(text_encoder_name)
-        
-        self.target_token_idx = 0
+
 
         if self.lookup_strings: 
             embs_df = pd.read_csv(EEGClip_config.embs_df_path)
-            embs_name = "embs_instructor"
+            embs_name = text_encoder_name
             for r in range(len(embs_df)):
                 re = copy.copy(embs_df[embs_name][r])
                 # convert the string to array
@@ -79,7 +68,20 @@ class TextEncoder(nn.Module):
                 embs_df[embs_name][r] = re
 
             self.embs_df = embs_df
-
+        else:
+            if text_encoder_pretrained:
+                self.model = AutoModel.from_pretrained(text_encoder_name, output_hidden_states=True)
+            else:
+                self.model = AutoModel(config=AutoConfig())
+            
+            #self.model = SentenceTransformer("hkunlp/instructor-xl")
+            print("trainable text encoder : ", text_encoder_trainable)
+            for param in self.model.parameters():
+                param.requires_grad = text_encoder_trainable
+            
+            self.tokenizer = AutoTokenizer.from_pretrained(text_encoder_name)
+            
+            self.target_token_idx = 0
 
     def forward(self, string_batch):
         string_batch = list(string_batch)
@@ -100,9 +102,9 @@ class TextEncoder(nn.Module):
         if self.lookup_strings: #lookup precomputed embeddings (faster training) 
             embs = []
             for s in string_batch:
-                lookup = self.embs_df.loc[self.embs_df['report'] == s, 'embs_instructor']
+                lookup = self.embs_df.loc[self.embs_df['report'] == s, self.text_encoder_name]
                 
-                emb = lookup.item()
+                emb = lookup.tolist()[0]
                 embs.append(emb)
             embs = torch.Tensor(embs).to(CFG.device)
                 

@@ -9,10 +9,10 @@ Baseline implementation by Robin
 
 # %% [markdown]
 # ## Hyperparameters
-
+medication_list = ["keppra", "dilantin", "depakote"]
 # %%
 n_recordings_to_load = 2993
-target_name = 'gender'
+target_name = 'age'
 n_max_minutes = 3
 sfreq = 100
 n_minutes = 2
@@ -82,7 +82,7 @@ dataset = TUHAbnormal(
     recording_ids=range(n_recordings_to_load),  # loads the n chronologically first recordings
     target_name=target_name,  # age, gender, pathology
     preload=False,
-    add_physician_reports=False,
+    add_physician_reports=True,
 )
 
 # %%
@@ -136,7 +136,9 @@ n_subjects = len(subject_datasets)
 
 n_split = int(np.round(n_subjects * 0.75))
 keys = list(subject_datasets.keys())
-train_sets = [d for i in range(n_split) for d in subject_datasets[keys[i]].datasets]
+#train_sets = [d for i in range(n_split) for d in subject_datasets[keys[i]].datasets]
+train_sets = [d for i in range(n_subjects) for d in subject_datasets[keys[i]].datasets]
+
 train_set = BaseConcatDataset(train_sets)
 valid_sets = [d for i in range(n_split, n_subjects) for d in subject_datasets[keys[i]].datasets]
 valid_set = BaseConcatDataset(valid_sets)
@@ -163,7 +165,7 @@ window_train_set = create_fixed_length_windows(
     window_size_samples=input_window_samples,
     window_stride_samples=n_preds_per_input,
     drop_last_window=True,
-    mapping = {'M': 0, 'F': 1}
+    #mapping = {'M': 0, 'F': 1}
 )
 
 window_valid_set = create_fixed_length_windows(
@@ -174,7 +176,7 @@ window_valid_set = create_fixed_length_windows(
     window_size_samples=input_window_samples,
     window_stride_samples=n_preds_per_input,
     drop_last_window=False,
-    mapping = {'M': 0, 'F': 1}
+    #mapping = {'M': 0, 'F': 1}
 )
 
 window_test_set = create_fixed_length_windows(
@@ -185,7 +187,7 @@ window_test_set = create_fixed_length_windows(
     window_size_samples=input_window_samples,
     window_stride_samples=n_preds_per_input,
     drop_last_window=False,
-    mapping = {'M': 0, 'F': 1}
+    #mapping = {'M': 0, 'F': 1}
 )
 
 # %% [markdown]
@@ -245,6 +247,8 @@ for i_epoch in trange(n_epochs):
             #print(X.shape)
             #print(i)
             X = X.cuda()
+            y = [1 if age < 50 else 0 for age in y]
+            y = th.Tensor(y)
             y = y.type(th.LongTensor).cuda()
             out = model(X)
             #print(out.shape)
@@ -267,7 +271,10 @@ for i_epoch in trange(n_epochs):
                 preds = model(X.cuda())
                 all_preds.extend(preds.cpu().numpy())
                 all_is.extend(i)
-                all_ys.extend(y.cpu().numpy())
+                #print(y)
+                #y = y.cpu().numpy()
+                y = [1 if age < 50 else 0 for age in y]
+                all_ys.extend(y)
         all_preds = np.array(all_preds)
         #print(all_preds.shape) # (nb_crops, 2, nb_pred_per_crop)
         all_ys = np.array(all_ys)
