@@ -42,7 +42,7 @@ ax2.legend(['val_loss'], loc='upper left')
 
 """
 plt.tight_layout()
-plt.show()
+#plt.show()
 plt.savefig("results/hpo_lr.png")
 
 
