@@ -185,7 +185,7 @@ if __name__ == "__main__":
     else : 
         
         train_set = dataset.split('train')['True']
-
+        """
         subject_datasets = train_set.split('subject')
         n_subjects = len(subject_datasets)
 
@@ -202,6 +202,7 @@ if __name__ == "__main__":
         train_sets = random.sample(list(train_sets), len(train_sets) // train_frac) 
         print('nb train subjects : ', len(train_sets))
         train_set = BaseConcatDataset(train_sets)
+        """
 
         valid_set = dataset.split('train')['False']
 
@@ -278,8 +279,8 @@ if __name__ == "__main__":
         to_dense_prediction_model(EEGEncoder)
 
         """
-        eegclipmodel = EEGClipModel.load_from_checkpoint(results_dir + "/models/EEGClip_75.ckpt")
-        #print(eegclipmodel)
+        eegclipmodel = EEGClipModel.load_from_checkpoint(results_dir + "/models/EEGClip_100_medicalai/ClinicalBERT_64.ckpt")
+        
         EEGEncoder = torch.nn.Sequential(eegclipmodel.eeg_encoder,eegclipmodel.eeg_projection)
         for layer in EEGEncoder.modules():
             if hasattr(layer, 'reset_parameters'):

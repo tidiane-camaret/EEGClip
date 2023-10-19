@@ -1,6 +1,8 @@
 import os
 import argparse
 import socket
+import copy
+
 import pandas as pd
 import numpy as np
 import torch 
@@ -40,23 +42,14 @@ mne.set_log_level('ERROR')  # avoid messages everytime a window is extracted
 import EEGClip_config
 
 """
-This script trains a classifier model zero-shot style
-on the TUH EEG dataset for different classification tasks :
-pathological
-age
-gender
-report-based (medication, diagnosis ...)
+This script uses EEG-Clip representations to do recording retrieval :
+given a EEG segment, retrive the corresponding text description, and vice-versa
+metrics : median rank, recall@k
 
 """
 
-
-
-
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Train an EEG classifier on the TUH EEG dataset.')
-    parser.add_argument('--task_name', type=str, default="pathological",
-                        help='classification task name (pathological, age, gender, report-related tasks ....')    
     parser.add_argument('--n_rec', type=int, default=2993,
                         help='Number of recordings to load from TUH EEG dataset.')
     parser.add_argument('--num_workers', type=int, default=16,
@@ -68,44 +61,6 @@ if __name__ == "__main__":
     num_workers = args.num_workers
 
     n_recordings_to_load = args.n_rec
-    mapping = None
-    task_name = args.task_name #('pathological', 'age', 'gender', "epilep", "keppra", "dilantin", "seizure")
-    if task_name in ['pathological', 'age', 'gender']: 
-        target_name = task_name 
-    elif task_name == "under_50":
-        target_name = "age"
-    else:
-        target_name = "report"
-
-    if task_name =="gender":
-        s0 = "The patient is male"
-        s1 = "The patient is female"
-        mapping = {'M': 0, 'F': 1}
-
-    if task_name == "pathological":
-        s0 = "This is a normal recording."
-        s1 = "This is an abnormal recording."
-
-    if task_name == "under_50":
-        s0 = "The patient is over 50 year old"
-        s1 = "The patient is under 50 year old"
-
-    if task_name == "epilep":
-        s0 = "The patient does not have epilepsy"
-        s1 = "The patient has epilepsy"
-
-
-    if task_name == "seizure":
-        s0 = "The patient does not have seizures"
-        s1 = "The patient has seizures"
-
-
-    if task_name == "medication":
-        medication_list = ["keppra", "dilantin", "depakote"]
-
-        s0 = "no anti-epileptic drugs were prescribed to the patient" #"The patient is unlikely to have been prescribed anti-epileptic drugs (anticonvulsants, keppra, dilantin or depakote), used to control seizures"  #"keppra", "dilantin", "depakote"
-        s1 = "anti-epileptic drugs medication were prescribed to the patient" #"The patient is likely to have been prescribed anti-epileptic drugs (anticonvulsants, keppra, dilantin or depakote), used to control seizures"  #"keppra, dilantin or depakote" 
-
 
 
     n_max_minutes = 3
@@ -117,7 +72,7 @@ if __name__ == "__main__":
 
     nailcluster = (socket.gethostname() == "vs3-0")
 
-
+    
     results_dir = EEGClip_config.results_dir
     tuh_data_dir = EEGClip_config.tuh_data_dir
 
@@ -135,10 +90,10 @@ if __name__ == "__main__":
     dataset = TUHAbnormal(
         path=tuh_data_dir,
         recording_ids=range(n_recordings_to_load),  # loads the n chronologically first recordings
-        target_name=target_name,  # age, gender, pathology
+        target_name="report",  # age, gender, pathology
         preload=False,
         add_physician_reports=True,
-        n_jobs=args.num_workers)
+        n_jobs=1)
 
     dataset.set_description(text_preprocessing(dataset.description, processed_categories = "all"), overwrite=True)
 
@@ -187,7 +142,6 @@ if __name__ == "__main__":
         window_size_samples=input_window_samples,
         window_stride_samples=n_preds_per_input,
         drop_last_window=False,
-        mapping=mapping
     )
 
     ### PREPROCESSING NECESSARY IF USING TUH_PRE
@@ -211,94 +165,46 @@ if __name__ == "__main__":
     eegclipmodel.cuda()
     EEGEncoder = torch.nn.Sequential(eegclipmodel.eeg_encoder,eegclipmodel.eeg_projection)
     # get size of the last layer
-    language_model_name = "medicalai/ClinicalBERT"
-    tokenizer = AutoTokenizer.from_pretrained(language_model_name)
-    language_model = AutoModel.from_pretrained(language_model_name)
+    text_encoder_name = "medicalai/ClinicalBERT"
 
-    def sentence_embedder(sentence):
-        """
-        desc_tokenized = bert_tokenizer(sentence, return_tensors="pt", max_length=512, truncation=True, padding='max_length')
-        outputs = bert_model(**desc_tokenized)
-        emb = outputs.to_tuple()[0][0][0].detach().numpy().tolist()
-
- 
-        desc_tokenized = instructor_tokenizer(sentence, return_tensors="pt", max_length=512, truncation=True, padding='max_length')
-        outputs = instructor_model.encoder(**desc_tokenized)
-        emb = outputs.to_tuple()[0][0][0]
-        emb = eegclipmodel.text_projection(emb)
-        emb = emb.detach().cpu().numpy()    
-       
-        instruction = "Represent the medical report: "
-        emb = instructor_model.encode([[instruction,sentence]])[0]
-        emb = torch.Tensor(emb).to(device='cuda:0')
-        emb = eegclipmodel.text_projection(emb)
-        emb = emb.detach().cpu().numpy()    
-        """
-        
-        desc_tokenized = tokenizer(sentence, return_tensors="pt", max_length=512, truncation=True, padding='max_length')
-        outputs = language_model(**desc_tokenized)
-        emb = outputs.to_tuple()[0][0][0].detach().cpu().numpy()
-        emb = torch.Tensor(emb).to(device='cuda:0')
-        emb = eegclipmodel.text_projection(emb)
-        emb = emb.detach().cpu().numpy()   
-        return emb
-
-
-
-    s0_embed = sentence_embedder(s0)
-    s1_embed = sentence_embedder(s1)
-    ## get embeddings for the validation set using the EEG encoder
 
     for param in EEGEncoder.parameters():
         param.requires_grad = False
 
+    embs_df = pd.read_csv(EEGClip_config.embs_df_path)
+    embs_name = text_encoder_name
+    for r in range(len(embs_df)):
+        re = copy.copy(embs_df[embs_name][r])
+        # convert the string to array
+        re = re.replace('[', '')
+        re = re.replace(']', '')
+        re = re.replace(',', '')
+        re = re.split()
+        re = [float(i) for i in re]
+        embs_df[embs_name][r] = re
     # iterate over the validation set and get the embeddings
-    embeddings = []
-    labels = []
+    eeg_embs = []
+    text_embs = []
     for batch in tqdm.tqdm(valid_loader):
-        eeg, label, id = batch
+        eeg, text, id = batch
         eeg = eeg.cuda()
         eeg = EEGEncoder(eeg)
         eeg = torch.mean(eeg, dim=2)
-        embeddings.append(eeg.detach().cpu().numpy())
-        labels.append(label)
-    
-    embeddings = np.concatenate(embeddings)
-    labels = np.concatenate(labels)
+        eeg_embs.append(eeg.detach().cpu().numpy())
 
-    
-    if task_name == "medication":
-        labels = [1 if any(med in string.lower() for med in medication_list) else 0 for string in labels]
-    
+        text_emb = []
+        for s in text:
+            lookup = embs_df.loc[embs_df['report'] == s, text_encoder_name]
+            
+            emb = lookup.tolist()[0]
+            text_emb.append(emb)
+        text_emb = torch.Tensor(text_emb).to(device='cuda:0')
+        text_emb = eegclipmodel.text_projection(text_emb)
+        text_embs.append(text_emb.detach().cpu().numpy())
 
-    if task_name == "epilep":
-        labels = [0 if "epilep" not in l.lower() or "no epilep" in l.lower() else 1 for l in labels]
-    
-    if task_name == "seizure":
-        labels = [0 if "seizure" not in l.lower() or "no seizure" in l.lower() else 1 for l in labels]
 
-    if task_name == "under_50":
-        labels = [0 if age >= 50 else 1 for age in labels]
-    
-    distance_classifier = []
-    for r in embeddings:
-        d0 = distance.cosine(r, s0_embed)
-        d1 = distance.cosine(r, s1_embed)
-        if d0 < d1:
-            distance_classifier.append(0)
-        else:
-            distance_classifier.append(1)
+    eeg_embs = np.concatenate(eeg_embs)
+    text_embs = np.concatenate(text_embs)
 
-    print("label balance :", np.mean(distance_classifier))
-
-    # compare to the actual labels
-    print("Accuracy: ", balanced_accuracy_score(labels, distance_classifier))
-
-    ## plot the embeddings in 2D using TSNE
-    features2d = TSNE(n_components=2).fit_transform(embeddings)
-    
-    plt.scatter([a[0] for a in features2d],
-                [a[1] for a in features2d],
-                c=labels)
-    plt.savefig(EEGClip_config.results_dir + "clip_graphs/tsne_map.png")
-
+    print(eeg_embs.shape)
+    print(text_embs.shape)

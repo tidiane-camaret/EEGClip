@@ -45,29 +45,18 @@ class TextEncoder(nn.Module):
                  text_encoder_pretrained,
                  text_encoder_trainable,
                  string_sampling = False,
-                 lookup_strings = False #use previously computed embeddings
+                 lookup_strings = True #use previously computed embeddings
                 ):
         super().__init__()
         self.string_sampling = string_sampling
         self.lookup_strings = lookup_strings
+        self.text_encoder_name = text_encoder_name
 
-        if text_encoder_pretrained:
-            self.model = AutoModel.from_pretrained(text_encoder_name, output_hidden_states=True)
-        else:
-            self.model = AutoModel(config=AutoConfig())
-        
-        #self.model = SentenceTransformer("hkunlp/instructor-xl")
-        print("trainable text encoder : ", text_encoder_trainable)
-        for param in self.model.parameters():
-            param.requires_grad = text_encoder_trainable
-        
-        self.tokenizer = AutoTokenizer.from_pretrained(text_encoder_name)
-        
-        self.target_token_idx = 0
+
 
         if self.lookup_strings: 
             embs_df = pd.read_csv(EEGClip_config.embs_df_path)
-            embs_name = "embs_instructor"
+            embs_name = text_encoder_name
             for r in range(len(embs_df)):
                 re = copy.copy(embs_df[embs_name][r])
                 # convert the string to array
@@ -79,7 +68,20 @@ class TextEncoder(nn.Module):
                 embs_df[embs_name][r] = re
 
             self.embs_df = embs_df
-
+        else:
+            if text_encoder_pretrained:
+                self.model = AutoModel.from_pretrained(text_encoder_name, output_hidden_states=True)
+            else:
+                self.model = AutoModel(config=AutoConfig())
+            
+            #self.model = SentenceTransformer("hkunlp/instructor-xl")
+            print("trainable text encoder : ", text_encoder_trainable)
+            for param in self.model.parameters():
+                param.requires_grad = text_encoder_trainable
+            
+            self.tokenizer = AutoTokenizer.from_pretrained(text_encoder_name)
+            
+            self.target_token_idx = 0
 
     def forward(self, string_batch):
         string_batch = list(string_batch)
@@ -100,13 +102,16 @@ class TextEncoder(nn.Module):
         if self.lookup_strings: #lookup precomputed embeddings (faster training) 
             embs = []
             for s in string_batch:
-                lookup = self.embs_df.loc[self.embs_df['report'] == s, 'embs_instructor']
+                lookup = self.embs_df.loc[self.embs_df['report'] == s, self.text_encoder_name]
                 
-                emb = lookup.item()
+                emb = lookup.tolist()[0]
                 embs.append(emb)
             embs = torch.Tensor(embs).to(CFG.device)
                 
         else:
+            #print(string_batch)
+            #string_batch = [s.partition("pijule")[2] for s in string_batch]
+            #print(string_batch)
             input_ids = self.tokenizer(string_batch, 
                                     padding=True, 
                                     truncation=True, 
@@ -117,8 +122,6 @@ class TextEncoder(nn.Module):
             
             embs = outputs.last_hidden_state[:,0,:]
         
-
-
         
         return embs
 
@@ -379,19 +382,17 @@ class EEGClipModel(pl.LightningModule):
             features_train = torch.cat(self.features_train).cpu()
 
             labels_train = torch.cat(self.labels_train).cpu()
-            equal_to_extracted = (labels_train == torch.cat(self.labels_train).cpu())
-            print("proportion of correctly extracted labels (valid): ", torch.sum(equal_to_extracted)/equal_to_extracted.shape[0])
 
             print("balance in train set : ", torch.sum(labels_train)/labels_train.shape[0])
             print("balance in valid set : ", torch.sum(labels_valid)/labels_valid.shape[0])
 
             # loop through classifiers
             for classifier_name, classifier in CFG.classifiers_dict.items():
-                for label_idx in range(labels_train.shape[1]):
+                for label_idx, label_name in enumerate(['pathological','gender','under_50','medication']):
                     classifier.fit(features_train, labels_train[:,label_idx])
                     preds = classifier.predict(features_valid)
                     balanced_acc = balanced_accuracy_score(labels_valid[:,label_idx], preds)
-                    self.log(f'val_balanced_acc_{classifier_name}_{label_idx}', balanced_acc, prog_bar=True)
+                    self.log(f'val_balanced_acc_{classifier_name}_{label_name}', balanced_acc, prog_bar=True)
                     """
                     classifier.fit(features_train, labels_train)
                     pred_labels = classifier.predict(features_valid)
