@@ -20,7 +20,7 @@ tmux attach -t <name>
 
 # run scripts
 cd ~/dev/neuro_ai/EEGClip
-python3 -m scripts.clip.clip_tuh_eeg --n_recordings_to_load 2993
+python3 -m scripts.clip.clip_tuh_eeg 
 
 
 # start a job

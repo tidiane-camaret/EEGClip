@@ -13,11 +13,11 @@ echo "Workingdir: $PWD";
 echo "Started at $(date)";
 echo "Running job $SLURM_JOB_NAME using $SLURM_JOB_CPUS_PER_NODE cpus per node with given JID $SLURM_JOB_ID on queue $SLURM_JOB_PARTITION";
  
-# Job to perform, here for example you would call your pythnfile that runs your code
+# Job to perform, here for example you would call your pytho nfile that runs your code
 ## run training script
-# python3 -m scripts.clip.clip_tuh_eeg --n_recordings_to_load 2993 --string_sampling
+ python3 -m scripts.clip.clip_tuh_eeg --n_recordings_to_load 2993 #--string_sampling
 ## run sweep
-wandb agent ayousyku
+# wandb agent ayousyku
 # Print some Information about the end-time to STDOUT
 echo "DONE";
 echo "Finished at $(date)";

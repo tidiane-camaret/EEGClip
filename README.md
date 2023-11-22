@@ -7,10 +7,15 @@
 
 *Detailed documentation for each parameter can be found in the respective scripts.*
 
+### 0. Preprocessing
+
+Generate the text embeddings using the [ClinicalBERT](https://huggingface.co/medicalai/ClinicalBERT) model, saved in scripts/text_preprocessing/embs_df.csv
+
+```python3 scripts/text_preprocessing/text_embedding.py```
 
 ### 1. Contrastive training on the TUH EEG Abnormal Corpus
 
-Trains the EEGClipModel, defined in ```EEGClip/clip_models.py```, on the TUH EEG Abnormal Corpus (first 70% of the subjects for training) 
+Train the EEGClipModel, defined in ```EEGClip/clip_models.py```, on the TUH EEG Abnormal Corpus (first 70% of the subjects for training) 
 
 ```python3 scripts/clip/train_eegclip_tuh.py```
 

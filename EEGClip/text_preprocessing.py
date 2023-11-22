@@ -19,11 +19,11 @@ def text_preprocessing(description_df:pd.DataFrame, processed_categories:str="al
   # reports were already painstakingly processed by Gemeinl
   # see https://github.com/gemeinl/auto-eeg-diagnosis-comparison/blob/master/code/physician_reports.ipynb
 
-  current_dir = '/home/jovyan/EEGClip/EEGClip/'
+  current_dir = os.path.dirname(os.path.abspath(__file__))
   # dataframe created by the TUH class
   #description_df=pd.read_csv(current_dir + '/tuh_description.csv')
   # processed dataframe
-  processed_df = pd.read_csv(current_dir + 'tuh_description_processed.csv')
+  processed_df = pd.read_csv(os.path.join(current_dir, 'tuh_description_processed.csv'))
 
   # add common column to both dataframes
   description_df['new_col'] = 's' + description_df['session'].astype(str).str.pad(3, fillchar='0')  + '_' + description_df['year'].astype(str) + '_' + description_df['month'].astype(str).str.pad(2, fillchar='0') + '_' + description_df['day'].astype(str).str.pad(2, fillchar='0') + description_df["subject"].astype(str)

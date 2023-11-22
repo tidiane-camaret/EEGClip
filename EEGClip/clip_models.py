@@ -233,7 +233,7 @@ class EEGClipModel(pl.LightningModule):
                  eeg_model_emb_dim=128,
                  text_model_emb_dim=768,
                  projected_emb_dim=64,
-                 text_encoder_name="bert-base-uncased",
+                 text_encoder_name="medicalai/ClinicalBERT",
                  text_encoder_pretrained=True,
                  text_encoder_trainable=True,
                  eeg_model_pretrained=False,
