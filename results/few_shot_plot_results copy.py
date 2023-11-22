@@ -54,6 +54,7 @@ ax.set_xlabel("Percentage of the training set used for fine-tuning",fontsize=20)
 ax.set_ylabel("Balanced accuracy",fontsize=20)
 ax.set_title("Medication")
 ax.tick_params(labelsize=20)
+
 plt.show()
 # clear figure
 plt.clf()

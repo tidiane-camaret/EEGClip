@@ -24,7 +24,7 @@ runs_df.rename(columns={"val_balanced_acc_logreg_gender":"accuracy_gender",
                         , inplace=True)
 
 
-
+"""
 # plot accuracies with projected_emb_dim as x axis
 sns.barplot(data=runs_df, x="text_encoder_name",y="val_loss", label = "validation loss",color='b')
 # same color for all bars
@@ -46,13 +46,17 @@ runs_df.plot.bar(x="text_encoder_name", y=["accuracy_gender", "accuracy_medicati
 # rotate x axis labels
 plt.xticks(rotation=45)
 
-plt.xlabel("text models")
-plt.ylabel("Accuracies")
+plt.xlabel("Weights of pretrained text models")
+plt.ylabel("Balanced accuracy")
 plt.title("Accuracies for different pretrained text models")
 plt.tight_layout()
+# y values from 0.5 to 1
+plt.ylim(0.5, 1)
+# add quadrillage 
+plt.grid(axis='y')
 
 # hide legend
 plt.legend().set_visible(False)
 
-plt.savefig("results/hpo_lm.png")
-"""
+plt.show()
+
