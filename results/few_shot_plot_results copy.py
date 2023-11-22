@@ -28,8 +28,9 @@ import matplotlib.pyplot as plt
 sns.set(style="whitegrid")
 
 # plot for each of the 6 tasks
-fig, axs = plt.subplots(2, 2, figsize=(15, 10))
+fig, ax = plt.subplots(1, 1, figsize=(15, 10))
 
+"""
 for i, task in enumerate(["pathological","gender","under_50","medication"]):
     ax = axs[i//2, i%2]
     # plot accuracy vs train_frac for each weight
@@ -38,6 +39,21 @@ for i, task in enumerate(["pathological","gender","under_50","medication"]):
     ax.set_ylim(0.5, np.max(runs_df[runs_df.task_name==task]["accuracy"]))
     ax.set_xlabel("train_frac")
     ax.set_ylabel("accuracy")
+"""
+# remove occurences when train_frac = 1
+runs_df = runs_df[runs_df.train_frac != 1]
+# rename "weights" elements : "eegclip_frozen -> EEG-Clip, under_50_frozen -> Under 50, pathological_frozen -> Pathological
+runs_df["weights"] = runs_df["weights"].replace(["eegclip_frozen", "pathological_frozen", "random_trainable"], ["EEG-Clip", "Irrelevant ", "Task-Specific"])
+task_name = "medication"
+sns.set(font_scale=2)
+sns.lineplot(data=runs_df[runs_df.task_name==task_name], x="train_frac", y="accuracy", hue="weights", ax=ax, errorbar=('ci', 80))
+# change x values to 1, 1/2, 1/5, 1/10, 1/20, 1/50
+ax.set_xticks([2, 5, 10, 20, 50])
+ax.set_xticklabels([ 1/2, 1/5, 1/10, 1/20, 1/50])
+ax.set_xlabel("Percentage of the training set used for fine-tuning",fontsize=20)
+ax.set_ylabel("Balanced accuracy",fontsize=20)
+ax.set_title("Medication")
+ax.tick_params(labelsize=20)
 
 plt.show()
 # clear figure
