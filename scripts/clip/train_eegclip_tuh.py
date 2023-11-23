@@ -8,7 +8,6 @@ from braindecode.datasets import TUHAbnormal
 from braindecode.datasets.base import BaseConcatDataset
 from braindecode.datasets.tuh import TUHAbnormal
 from braindecode.preprocessing import (
-    Preprocessor,
     create_fixed_length_windows,
     preprocess,
 )
@@ -98,46 +97,12 @@ def run_training(
     )
 
     # EEG preprocessing
-    ar_ch_names = sorted(
-        [
-            "EEG A1-REF",
-            "EEG A2-REF",
-            "EEG FP1-REF",
-            "EEG FP2-REF",
-            "EEG F3-REF",
-            "EEG F4-REF",
-            "EEG C3-REF",
-            "EEG C4-REF",
-            "EEG P3-REF",
-            "EEG P4-REF",
-            "EEG O1-REF",
-            "EEG O2-REF",
-            "EEG F7-REF",
-            "EEG F8-REF",
-            "EEG T3-REF",
-            "EEG T4-REF",
-            "EEG T5-REF",
-            "EEG T6-REF",
-            "EEG FZ-REF",
-            "EEG CZ-REF",
-            "EEG PZ-REF",
-        ]
-    )
+ 
 
-    preprocessors = [
-        Preprocessor(fn="pick_channels", ch_names=ar_ch_names, ordered=True),
-        Preprocessor("crop", tmin=0, tmax=n_max_minutes * 60, include_tmax=True),
-        Preprocessor(fn=lambda x: np.clip(x, -800, 800), apply_on_array=True),
-        Preprocessor("set_eeg_reference", ref_channels="average"),
-        # convert from volt to microvolt, directly modifying the numpy array
-        Preprocessor(fn=lambda x: x * 1e6, apply_on_array=True),
-        Preprocessor(fn=lambda x: x / 30, apply_on_array=True),  # this seemed best
-        Preprocessor(fn="resample", sfreq=sfreq),
-    ]
     # Preprocess the data
     if not nailcluster:
         print("Preprocessing EEG data")
-        preprocess(dataset, preprocessors)
+        preprocess(dataset, EEGClip_config.preprocessors)
 
     # ## Data Splitting
     # TODO : split using train and test splits instead

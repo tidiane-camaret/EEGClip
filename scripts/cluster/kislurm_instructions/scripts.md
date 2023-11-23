@@ -10,6 +10,8 @@ sfree
 
 # start an interactive session
 srun -p ml_gpu-rtx2080 -c 20 --mem 24000 --time=3:00:00 --pty bash 
+# faster request of resources : 
+srun -p ml_gpu-rtx2080 -c 10 --time=3:00:00 --pty bash 
 
 # tmux
 tmux new-session -s <name>
