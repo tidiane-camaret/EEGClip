@@ -23,8 +23,7 @@ embs_df_path = "/home/ndirt/dev/neuro_ai/EEGClip/scripts/text_preprocessing/embs
 model_paths = {
     "eegclip128": "/home/jovyan/EEGClip/results/wandb/EEGClip/1lgwz214/checkpoints/epoch=6-step=42609.ckpt",
     # "eegclip":"/home/jovyan/EEGClip/results/models/EEGClip_100_medicalai/ClinicalBERT_64.ckpt",
-    "eegclip": "/home/ndirt/dev/neuro_ai/EEGClip/results/wandb/EEGClip/cy66f0ff/checkpoints/epoch=19-step=17820.ckpt",
-    "eegclip_clip_after_scale": "/home/ndirt/dev/neuro_ai/EEGClip/results/wandb/EEGClip/8oqtv21l/checkpoints/epoch=19-step=17820.ckpt",
+    "eegclip": "/home/ndirt/dev/neuro_ai/EEGClip/results/wandb/EEGClip/v90rgytb/checkpoints/epoch=19-step=17820.ckpt",
     "pathological_task": "/home/jovyan/EEGClip/results/wandb/EEGClip_few_shot/1vljui8s/checkpoints/epoch=9-step=7100.ckpt",
     "under_50_task": "/home/jovyan/EEGClip/results/wandb/EEGClip_few_shot/akl12j6m/checkpoints/epoch=9-step=7100.ckpt",
 }
