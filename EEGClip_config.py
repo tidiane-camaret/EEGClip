@@ -1,36 +1,45 @@
 import os
+import socket
 
+import numpy as np
+from braindecode.preprocessing import Preprocessor
+
+nailcluster = socket.gethostname() == "vs3-0"
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
+
 """
 paths to the different datasets/models. Feel free to modify
 """
 
 # if using the nail cluster :
-"""
-results_dir = "/home/jovyan/EEGClip/results/"
-tuh_data_dir = "/home/jovyan/mne_data/TUH_PRE/tuh_eeg_abnormal_clip/v2.0.0/edf/"
-embs_df_path = '/home/jovyan/EEGClip/scripts/text_preprocessing/embs_df.csv'
+if nailcluster:
+    results_dir = "/home/jovyan/EEGClip/results/"
+    tuh_data_dir = "/home/jovyan/mne_data/TUH_PRE/tuh_eeg_abnormal_clip/v2.0.0/edf/"
+    embs_df_path = "/home/jovyan/EEGClip/scripts/text_preprocessing/embs_df.csv"
 
-"""
+
 # if using KISlurm :
-
-results_dir = "/home/ndirt/dev/neuro_ai/EEGClip/results/"
-tuh_data_dir = "/data/datasets/TUH/EEG/tuh_eeg_abnormal/v2.0.0/edf/"
-embs_df_path = "/home/ndirt/dev/neuro_ai/EEGClip/scripts/text_preprocessing/embs_df.csv"
+else:
+    results_dir = "/home/ndirt/dev/neuro_ai/EEGClip/results/"
+    tuh_data_dir = "/data/datasets/TUH/EEG/tuh_eeg_abnormal/v2.0.0/edf/"
+    embs_df_path = (
+        "/home/ndirt/dev/neuro_ai/EEGClip/scripts/text_preprocessing/embs_df.csv"
+    )
 
 
 # path to models trained on various tasks. Handy for baselines comparisons
 model_paths = {
-    "eegclip128": "/home/jovyan/EEGClip/results/wandb/EEGClip/1lgwz214/checkpoints/epoch=6-step=42609.ckpt",
-    # "eegclip":"/home/jovyan/EEGClip/results/models/EEGClip_100_medicalai/ClinicalBERT_64.ckpt",
-    "eegclip": "/home/ndirt/dev/neuro_ai/EEGClip/results/wandb/EEGClip/v90rgytb/checkpoints/epoch=19-step=17820.ckpt",
-    "pathological_task": "/home/jovyan/EEGClip/results/wandb/EEGClip_few_shot/1vljui8s/checkpoints/epoch=9-step=7100.ckpt",
-    "under_50_task": "/home/jovyan/EEGClip/results/wandb/EEGClip_few_shot/akl12j6m/checkpoints/epoch=9-step=7100.ckpt",
+    "eegclip128": results_dir
+    + "wandb/EEGClip/1lgwz214/checkpoints/epoch=6-step=42609.ckpt",
+    # "eegclip":results_dir + "models/EEGClip_100_medicalai/ClinicalBERT_64.ckpt",
+    "eegclip": results_dir
+    + "wandb/EEGClip/v90rgytb/checkpoints/epoch=19-step=17820.ckpt",
+    "pathological_task": results_dir
+    + "wandb/EEGClip_few_shot/1vljui8s/checkpoints/epoch=9-step=7100.ckpt",
+    "under_50_task": results_dir
+    + "wandb/EEGClip_few_shot/akl12j6m/checkpoints/epoch=9-step=7100.ckpt",
 }
 
-
-import numpy as np
-from braindecode.preprocessing import Preprocessor
 
 n_max_minutes = 3
 sfreq = 100
