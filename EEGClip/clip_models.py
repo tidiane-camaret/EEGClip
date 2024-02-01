@@ -23,7 +23,7 @@ from transformers import AutoTokenizer, AutoModel, AutoModelForCausalLM, AutoCon
 
 import pytorch_lightning as pl
 
-import EEGClip_config
+import config.EEGClip_config as EEGClip_config
 
 medication_list = ["keppra", "dilantin", "depakote"]
 

@@ -36,7 +36,7 @@ import mne
 mne.set_log_level('ERROR')  # avoid messages everytime a window is extracted
 
 
-import EEGClip_config
+import config.EEGClip_config as EEGClip_config
 
 """
 This script is used to train a classifier model zero-shot style
@@ -140,35 +140,16 @@ if __name__ == "__main__":
         add_physician_reports=True,
         n_jobs=1)
     
-    # ## Preprocessing
 
-    ar_ch_names = sorted([
-        'EEG A1-REF', 'EEG A2-REF',
-        'EEG FP1-REF', 'EEG FP2-REF', 'EEG F3-REF', 'EEG F4-REF', 'EEG C3-REF',
-        'EEG C4-REF', 'EEG P3-REF', 'EEG P4-REF', 'EEG O1-REF', 'EEG O2-REF',
-        'EEG F7-REF', 'EEG F8-REF', 'EEG T3-REF', 'EEG T4-REF', 'EEG T5-REF',
-        'EEG T6-REF', 'EEG FZ-REF', 'EEG CZ-REF', 'EEG PZ-REF'])
-
-    preprocessors = [
-        Preprocessor(fn='pick_channels', ch_names=ar_ch_names, ordered=True),
-        Preprocessor('crop', tmin=0, tmax=n_max_minutes*60, include_tmax=True),
-        Preprocessor(fn=lambda x: np.clip(x, -800,800), apply_on_array=True),
-        Preprocessor('set_eeg_reference', ref_channels='average'),
-        # convert from volt to microvolt, directly modifying the numpy array
-        Preprocessor(fn=lambda x: x * 1e6, apply_on_array=True),
-        Preprocessor(fn=lambda x: x / 30, apply_on_array=True), # this seemed best
-        Preprocessor(fn='resample', sfreq=sfreq),
-    ]
     # Preprocess the data
     if not nailcluster:
-        preprocess(dataset, preprocessors)
+        preprocess(dataset, EEGClip_config.preprocessors)
 
    # ## Data Splitting
     # TODO : split using train and test splits instead
     # TODO : maybe load TUH now on top of TUH Abnormal ?
 
-    
-    #dataset = dataset.split('train')['True']
+    """
 
     subject_datasets = dataset.split('subject')
     n_subjects = len(subject_datasets)
@@ -183,6 +164,9 @@ if __name__ == "__main__":
 
     valid_sets = [d for i in range(n_split, n_subjects) for d in subject_datasets[keys[i]].datasets]
     valid_set = BaseConcatDataset(valid_sets)
+    """
+    train_set = dataset.split('train')['True']
+    valid_set = dataset.split('train')['False']
 
     window_train_set = create_fixed_length_windows(
         train_set,
@@ -228,7 +212,7 @@ if __name__ == "__main__":
 
     # ## Create model
 
-    eegclipmodel = EEGClipModel.load_from_checkpoint(EEGClip_config.model_paths["eegclip"])
+    eegclipmodel = EEGClipModel.load_from_checkpoint(EEGClip_config.model_paths["eegclip_instructor"])
     eegclipmodel.cuda()
     EEGEncoder = torch.nn.Sequential(eegclipmodel.eeg_encoder,eegclipmodel.eeg_projection)
     # get size of the last layer

@@ -32,6 +32,8 @@ model_paths = {
     "eegclip128": results_dir
     + "wandb/EEGClip/1lgwz214/checkpoints/epoch=6-step=42609.ckpt",
     # "eegclip":results_dir + "models/EEGClip_100_medicalai/ClinicalBERT_64.ckpt",
+    "eegclip_bert": results_dir + "wandb/EEGClip/kg9zhzgx/checkpoints/epoch=11-step=10692.ckpt",
+    "eegclip_instructor": results_dir + "wandb/EEGClip/xv65fc7j/checkpoints/epoch=15-step=14256.ckpt",
     "eegclip": results_dir
     + "wandb/EEGClip/v90rgytb/checkpoints/epoch=19-step=17820.ckpt",
     "pathological_task": results_dir

@@ -1,0 +1,32 @@
+dataset:
+  n_recordings: 2993
+  report_categories: all
+model:
+  lr: 0.005
+  weight_decay: 0.0005
+  dropout: 0.1
+  projected_emb_dim: 64
+  num_fc_layers: 3
+  eeg_encoder:
+    pretrained: false
+    trainable: true
+    emb_dim: 128
+  text_encoder:
+    pretrained: true
+    trainable: false
+    emb_dim: 768
+    pretrained_name: medicalai/ClinicalBERT
+    string_sampling: false
+    lr_frac_lm: null
+training:
+  n_epochs: 20
+  batch_size: 64
+  num_workers: 20
+  cross_validation: false
+  n_folds: 5
+  fold_idx: 0
+wandb:
+  track: true
+  project_name: meta_rl
+  entity: null
+seed: 0

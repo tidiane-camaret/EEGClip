@@ -1,0 +1,31 @@
+defaults:
+  #- env: carl_mountain_car
+  - eegclip.yaml
+  - override hydra/launcher: slurm
+  - _self_ # this indicates that the current config overrides the configs placed above it
+           # however, this is already the default behavior, so this line is not necessary
+
+
+hydra:
+  callbacks:
+    log_job_return:
+      _target_: hydra.experimental.callbacks.LogJobReturnCallback
+  job:
+    chdir: True
+
+  sweeper:    # only invoked if --multirun is used, e.g. `python launchers/train_ae.py --multirun`
+    params:
+      seed: range(10)   # this will create 10 jobs, each with a different seed
+  run:
+    dir: results/hydra/single_run/${now:%Y-%m-%d}/${now:%H-%M-%S}
+  sweep:
+    dir: results/hydra/multirun/${now:%Y-%m-%d}/${now:%H-%M-%S}
+    subdir: ${hydra.job.num}
+
+wandb:
+  track: True
+  project_name: meta_rl
+  entity: 
+
+seed: 0
+

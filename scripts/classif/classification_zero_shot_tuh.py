@@ -25,7 +25,7 @@ from EEGClip.text_preprocessing import text_preprocessing
 mne.set_log_level("ERROR")  # avoid messages everytime a window is extracted
 
 
-import EEGClip_config
+import config.EEGClip_config as EEGClip_config
 
 """
 This script trains a classifier model zero-shot style
@@ -167,7 +167,6 @@ if __name__ == "__main__":
     # TODO : split using train and test splits instead
     # TODO : maybe load TUH now on top of TUH Abnormal ?
 
-    # dataset = dataset.split('train')['True']
 
     n_subjects = len(dataset.split("subject"))
 
@@ -203,14 +202,14 @@ if __name__ == "__main__":
     # ## Create model
 
     eegclipmodel = EEGClipModel.load_from_checkpoint(
-        EEGClip_config.model_paths["eegclip"]
+        EEGClip_config.model_paths["eegclip_bert"]
     )
     eegclipmodel.cuda()
     EEGEncoder = torch.nn.Sequential(
         eegclipmodel.eeg_encoder, eegclipmodel.eeg_projection
     )
     # get size of the last layer
-    text_encoder_name = "medicalai/ClinicalBERT"
+    text_encoder_name = "bert-base-uncased"
     tokenizer = AutoTokenizer.from_pretrained(text_encoder_name)
     language_model = AutoModel.from_pretrained(text_encoder_name)
 

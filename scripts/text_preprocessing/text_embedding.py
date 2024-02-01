@@ -1,18 +1,18 @@
 import os
-
+import pandas as pd
 import torch
 from transformers import AutoModel, AutoTokenizer
-
-import EEGClip_config
+from braindecode.datasets import TUHAbnormal
+import config.EEGClip_config as EEGClip_config
 
 device = torch.device("cuda")
 
-from braindecode.datasets import TUHAbnormal
+
 
 num_workers = 32
 
 tuh_data_dir = EEGClip_config.tuh_data_dir
-
+"""
 dataset = TUHAbnormal(
     path=tuh_data_dir,
     recording_ids=None,  # range(n_recordings_to_load),  # loads the n chronologically first recordings
@@ -30,24 +30,20 @@ from EEGClip.text_preprocessing import text_preprocessing
 embs_df = text_preprocessing(dataset.description)
 embs_df = embs_df[["report"]]
 """
-embs_df = pd.read_csv("/home/jovyan/EEGClip/scripts/text_preprocessing/embs_df.csv")
-"""
+embs_df = pd.read_csv("scripts/text_preprocessing/embs_df.csv")
 
-
-def sentence_embedder(sentence, tokenizer, model):
-    desc_tokenized = tokenizer(
-        sentence,
-        return_tensors="pt",
-        max_length=512,
-        truncation=True,
-        padding="max_length",
-    ).to(device)
-    outputs = model(**desc_tokenized)
-    emb = outputs.to_tuple()[0][0][0].detach().cpu().numpy()
+from InstructorEmbedding import INSTRUCTOR
+instructor_model = INSTRUCTOR('hkunlp/instructor-xl')
+def sentence_embedder(sentence):#, tokenizer, model):
+    instruction = "Represent the medical report: "
+    emb = instructor_model.encode([[instruction,sentence]])[0]
+    emb = torch.Tensor(emb).to(device='cuda:0')
+    emb = emb.detach().cpu().numpy()    
     return emb
 
 
-model_name = "medicalai/ClinicalBERT"
+model_name = "hkunlp/instructor-xl"
+print("model_name : ", model_name)
 """
 bert-base-uncased
 "BAAI/bge-large-en-v1.5"
@@ -55,12 +51,12 @@ medicalai/ClinicalBERT
 hkunlp/instructor-xl
 microsoft/BioGPT-Large-PubMedQA
 microsoft/BiomedCLIP-PubMedBERT_256-vit_base_patch16_224
-"""
+
 tokenizer = AutoTokenizer.from_pretrained(model_name)
 model = AutoModel.from_pretrained(model_name)
 
 model.to(device)
-
+"""
 embs = []
 
 import numpy as np
@@ -68,7 +64,7 @@ import numpy as np
 for i, r in enumerate(embs_df["report"]):
     if i % 100:
         print(i, "/", len(embs_df["report"]))
-    emb = sentence_embedder(r, tokenizer, model)
+    emb = sentence_embedder(r)#, tokenizer, model)
 
     embs.append(emb)
 

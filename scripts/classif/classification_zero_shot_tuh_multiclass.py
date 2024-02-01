@@ -25,7 +25,7 @@ from EEGClip.text_preprocessing import text_preprocessing
 mne.set_log_level("ERROR")  # avoid messages everytime a window is extracted
 
 
-import EEGClip_config
+import config.EEGClip_config as EEGClip_config
 
 """
 This script trains a classifier model zero-shot style

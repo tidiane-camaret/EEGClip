@@ -20,7 +20,7 @@ from braindecode.util import set_random_seeds
 from pytorch_lightning import Trainer
 from pytorch_lightning.loggers import WandbLogger
 
-import EEGClip_config
+import config.EEGClip_config as EEGClip_config
 from EEGClip.classifier_models import EEGClassifierModel
 from EEGClip.clip_models import EEGClipModel
 
