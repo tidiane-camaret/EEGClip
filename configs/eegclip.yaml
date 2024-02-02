@@ -1,9 +1,14 @@
 dataset:
   n_recordings: 2993
-  report_categories: "all"
+  processed_categories: "all"
+  target_name: "report"
+  preprocessing:
+    sfreq: 100
+    n_minutes: 2
+    input_window_samples: 1200
 
 
-model:
+eegclip:
   lr: 5e-3
   weight_decay: 5e-4
   dropout: 0.1
@@ -13,15 +18,18 @@ model:
     pretrained: false
     trainable: true
     emb_dim: 128
+    n_preds_per_input: 519
+    n_eeg_channels: 21
   text_encoder:
     pretrained: true
     trainable: false
     emb_dim: 768
     pretrained_name: medicalai/ClinicalBERT
     string_sampling: false
-    lr_frac_lm: 
+    lr_frac_lm: 0
 
 training:
+  seed: 20210325
   n_epochs: 20
   batch_size: 64
   num_workers: 20

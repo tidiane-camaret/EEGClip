@@ -1,12 +1,11 @@
 import os
+
 import pandas as pd
 import torch
-from transformers import AutoModel, AutoTokenizer
-from braindecode.datasets import TUHAbnormal
-import config.EEGClip_config as EEGClip_config
+
+import configs.EEGClip_config as EEGClip_config
 
 device = torch.device("cuda")
-
 
 
 num_workers = 32
@@ -33,12 +32,15 @@ embs_df = embs_df[["report"]]
 embs_df = pd.read_csv("scripts/text_preprocessing/embs_df.csv")
 
 from InstructorEmbedding import INSTRUCTOR
-instructor_model = INSTRUCTOR('hkunlp/instructor-xl')
-def sentence_embedder(sentence):#, tokenizer, model):
+
+instructor_model = INSTRUCTOR("hkunlp/instructor-xl")
+
+
+def sentence_embedder(sentence):  # , tokenizer, model):
     instruction = "Represent the medical report: "
-    emb = instructor_model.encode([[instruction,sentence]])[0]
-    emb = torch.Tensor(emb).to(device='cuda:0')
-    emb = emb.detach().cpu().numpy()    
+    emb = instructor_model.encode([[instruction, sentence]])[0]
+    emb = torch.Tensor(emb).to(device="cuda:0")
+    emb = emb.detach().cpu().numpy()
     return emb
 
 
@@ -64,7 +66,7 @@ import numpy as np
 for i, r in enumerate(embs_df["report"]):
     if i % 100:
         print(i, "/", len(embs_df["report"]))
-    emb = sentence_embedder(r)#, tokenizer, model)
+    emb = sentence_embedder(r)  # , tokenizer, model)
 
     embs.append(emb)
 

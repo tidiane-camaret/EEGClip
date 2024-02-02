@@ -141,6 +141,7 @@ data/TUH_Abnormal_EEG_rep_clip_features.csv
 results/tb_logs
 results/clip_graphs
 results/wandb
+results/hydra
 .vscode/settings.json
 scripts/cluster/logs
 scripts/hpo/wandb/

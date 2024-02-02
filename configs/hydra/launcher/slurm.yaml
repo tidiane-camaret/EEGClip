@@ -4,10 +4,10 @@ partition: ml_gpu-rtx2080   # CHANGE ME
 exclude:
 submitit_folder: ${hydra.sweep.dir}/.submitit/%j
 timeout_min: 180
-cpus_per_task: 8
+cpus_per_task: 20
 #num_gpus: null
 tasks_per_node: 1
-mem_gb: 8
+mem_gb: 10
 nodes: 1
 name: ${hydra.job.name}
 _target_: hydra_plugins.hydra_submitit_launcher.submitit_launcher.SlurmLauncher

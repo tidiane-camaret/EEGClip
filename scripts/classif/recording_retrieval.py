@@ -19,7 +19,7 @@ from EEGClip.text_preprocessing import text_preprocessing
 mne.set_log_level("ERROR")  # avoid messages everytime a window is extracted
 
 
-import config.EEGClip_config as EEGClip_config
+import configs.EEGClip_config as EEGClip_config
 
 """
 This script uses EEG-Clip representations to do recording retrieval :

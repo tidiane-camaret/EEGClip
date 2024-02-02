@@ -25,7 +25,7 @@ from EEGClip.text_preprocessing import text_preprocessing
 mne.set_log_level("ERROR")  # avoid messages everytime a window is extracted
 
 
-import config.EEGClip_config as EEGClip_config
+import configs.EEGClip_config as EEGClip_config
 
 """
 This script trains a classifier model zero-shot style
@@ -78,11 +78,11 @@ if __name__ == "__main__":
     elif task_name == "under_50":
         target_name = "age"
     elif task_name == "pathological_gender":
-        target_name = ("pathological","gender")
+        target_name = ("pathological", "gender")
     else:
         target_name = "report"
 
-    # DEFINE THE PROMPTS 
+    # DEFINE THE PROMPTS
     if task_name == "gender":
         s0 = "The patient is male"
         s1 = "The patient is female"
@@ -158,7 +158,6 @@ if __name__ == "__main__":
 
     # ## Preprocessing
 
-
     # Preprocess the data
     if not nailcluster:
         preprocess(dataset, EEGClip_config.preprocessors)
@@ -166,7 +165,6 @@ if __name__ == "__main__":
     # ## Data Splitting
     # TODO : split using train and test splits instead
     # TODO : maybe load TUH now on top of TUH Abnormal ?
-
 
     n_subjects = len(dataset.split("subject"))
 
@@ -297,12 +295,11 @@ if __name__ == "__main__":
     if task_name == "under_50":
         labels = [0 if age >= 50 else 1 for age in labels]
 
-
     distance_classifier = []
     for r in embeddings:
         d0 = distance.cosine(r, s0_embed)
         d1 = distance.cosine(r, s1_embed)
-        
+
         if task_name == "pathological_gender":
             d2 = distance.cosine(r, s2_embed)
             d3 = distance.cosine(r, s3_embed)
@@ -313,9 +310,7 @@ if __name__ == "__main__":
             if d0 < d1:
                 distance_classifier.append(0)
             else:
-                distance_classifier.append(1)    
-        
-
+                distance_classifier.append(1)
 
     print("label balance :", np.mean(distance_classifier))
 
@@ -326,4 +321,6 @@ if __name__ == "__main__":
     features2d = TSNE(n_components=2).fit_transform(embeddings)
 
     plt.scatter([a[0] for a in features2d], [a[1] for a in features2d], c=labels)
-    plt.savefig(EEGClip_config.results_dir + "clip_graphs/tsne_map_"+args.task_name+".png")
+    plt.savefig(
+        EEGClip_config.results_dir + "clip_graphs/tsne_map_" + args.task_name + ".png"
+    )

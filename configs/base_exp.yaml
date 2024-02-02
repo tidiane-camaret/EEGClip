@@ -15,7 +15,7 @@ hydra:
 
   sweeper:    # only invoked if --multirun is used, e.g. `python launchers/train_ae.py --multirun`
     params:
-      seed: range(10)   # this will create 10 jobs, each with a different seed
+      seed: range(1)   
   run:
     dir: results/hydra/single_run/${now:%Y-%m-%d}/${now:%H-%M-%S}
   sweep:
