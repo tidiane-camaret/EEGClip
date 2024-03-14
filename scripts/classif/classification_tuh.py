@@ -20,7 +20,7 @@ from braindecode.util import set_random_seeds
 from pytorch_lightning import Trainer
 from pytorch_lightning.loggers import WandbLogger
 
-import configs.EEGClip_config as EEGClip_config
+import configs.preprocess_config as preprocess_config
 from EEGClip.classifier_models import EEGClassifierModel
 from EEGClip.clip_models import EEGClipModel
 
@@ -139,8 +139,8 @@ if __name__ == "__main__":
     freeze_encoder = args.freeze_encoder
     num_workers = args.num_workers
 
-    results_dir = EEGClip_config.results_dir
-    tuh_data_dir = EEGClip_config.tuh_data_dir
+    results_dir = preprocess_config.results_dir
+    tuh_data_dir = preprocess_config.tuh_data_dir
 
     # TODO : use get_output_shape (requires to load the model first)
     n_preds_per_input = (
@@ -170,7 +170,7 @@ if __name__ == "__main__":
 
     # Preprocess the data
     if not nailcluster:
-        preprocess(dataset, EEGClip_config.preprocessors)
+        preprocess(dataset, preprocess_config.preprocessors)
 
     # ## Data Splitting
     # TODO : split using train and test splits instead

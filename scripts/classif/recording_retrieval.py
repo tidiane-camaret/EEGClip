@@ -19,7 +19,7 @@ from EEGClip.text_preprocessing import text_preprocessing
 mne.set_log_level("ERROR")  # avoid messages everytime a window is extracted
 
 
-import configs.EEGClip_config as EEGClip_config
+import configs.preprocess_config as preprocess_config
 
 """
 This script uses EEG-Clip representations to do recording retrieval :
@@ -60,8 +60,8 @@ if __name__ == "__main__":
 
     nailcluster = socket.gethostname() == "vs3-0"
 
-    results_dir = EEGClip_config.results_dir
-    tuh_data_dir = EEGClip_config.tuh_data_dir
+    results_dir = preprocess_config.results_dir
+    tuh_data_dir = preprocess_config.tuh_data_dir
 
     # TODO : use get_output_shape (requires to load the model first)
     n_preds_per_input = (
@@ -94,7 +94,7 @@ if __name__ == "__main__":
     # ## Preprocessing
 
     if not nailcluster:
-        preprocess(dataset, EEGClip_config.preprocessors)
+        preprocess(dataset, preprocess_config.preprocessors)
 
     # ## Data Splitting
     # TODO : split using train and test splits instead
@@ -135,7 +135,7 @@ if __name__ == "__main__":
     # ## Create model
 
     eegclipmodel = EEGClipModel.load_from_checkpoint(
-        EEGClip_config.model_paths["eegclip"]
+        preprocess_config.model_paths["eegclip"]
     )
     eegclipmodel.cuda()
     EEGEncoder = torch.nn.Sequential(
@@ -147,7 +147,7 @@ if __name__ == "__main__":
     for param in EEGEncoder.parameters():
         param.requires_grad = False
 
-    embs_df = pd.read_csv(EEGClip_config.embs_df_path)
+    embs_df = pd.read_csv(preprocess_config.embs_df_path)
     embs_name = text_encoder_name
     for r in range(len(embs_df)):
         re = copy.copy(embs_df[embs_name][r])

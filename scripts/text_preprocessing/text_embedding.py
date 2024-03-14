@@ -3,14 +3,14 @@ import os
 import pandas as pd
 import torch
 
-import configs.EEGClip_config as EEGClip_config
+import configs.preprocess_config as preprocess_config
 
 device = torch.device("cuda")
 
 
 num_workers = 32
 
-tuh_data_dir = EEGClip_config.tuh_data_dir
+tuh_data_dir = preprocess_config.tuh_data_dir
 """
 dataset = TUHAbnormal(
     path=tuh_data_dir,
@@ -74,5 +74,5 @@ embs = np.array(embs).tolist()  # important so that whole arrays are copied to t
 embs_df[model_name] = embs
 
 embs_df.to_csv(
-    os.path.join(EEGClip_config.ROOT_DIR, "scripts/text_preprocessing/embs_df.csv")
+    os.path.join(preprocess_config.ROOT_DIR, "scripts/text_preprocessing/embs_df.csv")
 )

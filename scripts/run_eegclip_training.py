@@ -21,7 +21,7 @@ from braindecode.util import set_random_seeds
 from pytorch_lightning import Trainer
 from pytorch_lightning.loggers import WandbLogger
 
-import configs.EEGClip_config as EEGClip_config
+import configs.preprocess_config as preprocess_config
 from EEGClip.clip_models import EEGClipModel
 from EEGClip.text_preprocessing import text_preprocessing
 
@@ -43,7 +43,8 @@ def main(config):
     args.target_name = config.dataset.target_name
     args.processed_categories = config.dataset.processed_categories
     args.text_encoder_trainable = config.eegclip.text_encoder.trainable
-    args.text_model_emb_dim = config.eegclip.text_encoder.emb_dim
+    args.text_encoder_emb_dim = config.eegclip.text_encoder.emb_dim
+    args.text_encoder_max_token_len = config.eegclip.text_encoder.max_token_len
     args.n_recordings = config.dataset.n_recordings
     args.n_epochs = config.training.n_epochs
     args.num_workers = config.training.num_workers
@@ -55,6 +56,7 @@ def main(config):
     args.seed = config.training.seed
     args.n_preds_per_input = config.eegclip.eeg_encoder.n_preds_per_input
     args.n_eeg_channels = config.eegclip.eeg_encoder.n_eeg_channels
+    args.contrastive_loss_temperature = config.eegclip.contrastive_loss.temperature
 
     run_eegclip_training(args)
 
@@ -71,7 +73,7 @@ def run_eegclip_training(args):
     target_name = args.target_name
     processed_categories = args.processed_categories
     text_encoder_trainable = args.text_encoder_trainable
-    text_model_emb_dim = args.text_model_emb_dim
+    text_encoder_emb_dim = args.text_encoder_emb_dim
     n_recordings_to_load = args.n_recordings
     n_epochs = args.n_epochs
     num_workers = args.num_workers
@@ -79,6 +81,8 @@ def run_eegclip_training(args):
     crossval = args.crossval
     n_folds = args.n_folds
     fold_idx = args.fold_idx
+    contrastive_loss_temperature = args.contrastive_loss_temperature
+    text_encoder_max_token_len = args.text_encoder_max_token_len
     
 
     print("processed categories : ", processed_categories)
@@ -86,8 +90,8 @@ def run_eegclip_training(args):
         socket.gethostname() == "vs3-0"
     )  # check if we are on the nail cluster or on kislurm
 
-    results_dir = EEGClip_config.results_dir
-    tuh_data_dir = EEGClip_config.tuh_data_dir
+    results_dir = preprocess_config.results_dir
+    tuh_data_dir = preprocess_config.tuh_data_dir
 
 
     sfreq = args.preprocessing.sfreq
@@ -133,7 +137,7 @@ def run_eegclip_training(args):
     # Preprocess the data
     if not nailcluster:
         print("Preprocessing EEG data")
-        preprocess(dataset, EEGClip_config.preprocessors)
+        preprocess(dataset, preprocess_config.preprocessors)
 
     # ## Data Splitting
     # TODO : split using train and test splits instead
@@ -248,7 +252,9 @@ def run_eegclip_training(args):
             num_fc_layers=num_fc_layers,
             text_encoder_name=text_encoder_name,
             text_encoder_trainable=text_encoder_trainable,
-            text_model_emb_dim=text_model_emb_dim,
+            text_encoder_emb_dim=text_encoder_emb_dim,
+            contrastive_loss_temperature=contrastive_loss_temperature,
+            text_encoder_max_token_len=text_encoder_max_token_len,
         ),
         train_loader,
         valid_loader,
@@ -274,7 +280,7 @@ class Args:
     """batch size"""
     projected_emb_dim: int = 64
     """final embedding size after projection"""
-    text_model_emb_dim: int = 768
+    text_encoder_emb_dim: int = 768
     """embedding size for the text encoder"""
     num_fc_layers: int = 3
     """nb layers in the projection modules"""

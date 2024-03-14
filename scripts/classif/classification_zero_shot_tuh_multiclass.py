@@ -25,7 +25,7 @@ from EEGClip.text_preprocessing import text_preprocessing
 mne.set_log_level("ERROR")  # avoid messages everytime a window is extracted
 
 
-import configs.EEGClip_config as EEGClip_config
+import configs.preprocess_config as preprocess_config
 
 """
 This script trains a classifier model zero-shot style
@@ -126,8 +126,8 @@ if __name__ == "__main__":
 
     nailcluster = socket.gethostname() == "vs3-0"
 
-    results_dir = EEGClip_config.results_dir
-    tuh_data_dir = EEGClip_config.tuh_data_dir
+    results_dir = preprocess_config.results_dir
+    tuh_data_dir = preprocess_config.tuh_data_dir
 
     # TODO : use get_output_shape (requires to load the model first)
     n_preds_per_input = (
@@ -160,7 +160,7 @@ if __name__ == "__main__":
 
     # Preprocess the data
     if not nailcluster:
-        preprocess(dataset, EEGClip_config.preprocessors)
+        preprocess(dataset, preprocess_config.preprocessors)
 
     # ## Data Splitting
     # TODO : split using train and test splits instead
@@ -202,7 +202,7 @@ if __name__ == "__main__":
     # ## Create model
 
     eegclipmodel = EEGClipModel.load_from_checkpoint(
-        EEGClip_config.model_paths["eegclip"]
+        preprocess_config.model_paths["eegclip"]
     )
     eegclipmodel.cuda()
     EEGEncoder = torch.nn.Sequential(
@@ -324,5 +324,5 @@ if __name__ == "__main__":
 
     plt.scatter([a[0] for a in features2d], [a[1] for a in features2d], c=labels)
     plt.savefig(
-        EEGClip_config.results_dir + "clip_graphs/tsne_map_" + args.task_name + ".png"
+        preprocess_config.results_dir + "clip_graphs/tsne_map_" + args.task_name + ".png"
     )

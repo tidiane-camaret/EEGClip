@@ -27,6 +27,9 @@ eegclip:
     pretrained_name: medicalai/ClinicalBERT
     string_sampling: false
     lr_frac_lm: 0
+    max_token_len: 512
+  contrastive_loss:
+    temperature: 1
 
 training:
   seed: 20210325

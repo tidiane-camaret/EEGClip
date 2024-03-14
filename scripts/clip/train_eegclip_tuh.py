@@ -16,7 +16,7 @@ from braindecode.util import set_random_seeds
 from pytorch_lightning import Trainer
 from pytorch_lightning.loggers import WandbLogger
 
-import configs.EEGClip_config as EEGClip_config
+import configs.preprocess_config as preprocess_config
 from EEGClip.clip_models import EEGClipModel
 from EEGClip.text_preprocessing import text_preprocessing
 
@@ -54,8 +54,8 @@ def run_training(
         socket.gethostname() == "vs3-0"
     )  # check if we are on the nail cluster or on kislurm
 
-    results_dir = EEGClip_config.results_dir
-    tuh_data_dir = EEGClip_config.tuh_data_dir
+    results_dir = preprocess_config.results_dir
+    tuh_data_dir = preprocess_config.tuh_data_dir
 
     n_max_minutes = 3
     sfreq = 100
@@ -101,7 +101,7 @@ def run_training(
     # Preprocess the data
     if not nailcluster:
         print("Preprocessing EEG data")
-        preprocess(dataset, EEGClip_config.preprocessors)
+        preprocess(dataset, preprocess_config.preprocessors)
 
     # ## Data Splitting
     # TODO : split using train and test splits instead
