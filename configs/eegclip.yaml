@@ -17,24 +17,25 @@ eegclip:
   eeg_encoder:
     pretrained: false
     trainable: true
-    emb_dim: 128
+    emb_dim: 1024
     n_preds_per_input: 519
     n_eeg_channels: 21
   text_encoder:
     pretrained: true
     trainable: false
-    emb_dim: 768
-    pretrained_name: medicalai/ClinicalBERT
+    emb_dim: 1024
+    pretrained_name: "mixedbread-ai/mxbai-embed-large-v1"
     string_sampling: false
     lr_frac_lm: 0
     max_token_len: 512
   contrastive_loss:
+    func: "clip"
     temperature: 1
 
 training:
   seed: 20210325
   n_epochs: 20
-  batch_size: 64
+  batch_size: 512
   num_workers: 20
   cross_validation: false
   n_folds: 5

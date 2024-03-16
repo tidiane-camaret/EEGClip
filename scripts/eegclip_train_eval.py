@@ -57,7 +57,7 @@ def main(config):
     args.n_preds_per_input = config.eegclip.eeg_encoder.n_preds_per_input
     args.n_eeg_channels = config.eegclip.eeg_encoder.n_eeg_channels
     args.contrastive_loss_temperature = config.eegclip.contrastive_loss.temperature
-
+    args.contrastive_loss_func = config.eegclip.contrastive_loss.func
     run_eegclip_training(args)
 
 
@@ -83,6 +83,7 @@ def run_eegclip_training(args):
     fold_idx = args.fold_idx
     contrastive_loss_temperature = args.contrastive_loss_temperature
     text_encoder_max_token_len = args.text_encoder_max_token_len
+    contrastive_loss_func = args.contrastive_loss_func
     
 
     print("processed categories : ", processed_categories)
@@ -255,6 +256,7 @@ def run_eegclip_training(args):
             text_encoder_emb_dim=text_encoder_emb_dim,
             contrastive_loss_temperature=contrastive_loss_temperature,
             text_encoder_max_token_len=text_encoder_max_token_len,
+            contrastive_loss_func = contrastive_loss_func
         ),
         train_loader,
         valid_loader,
@@ -280,7 +282,7 @@ class Args:
     """batch size"""
     projected_emb_dim: int = 64
     """final embedding size after projection"""
-    text_encoder_emb_dim: int = 768
+    text_encoder_emb_dim: int = 1024
     """embedding size for the text encoder"""
     num_fc_layers: int = 3
     """nb layers in the projection modules"""

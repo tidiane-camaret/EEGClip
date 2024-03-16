@@ -17,7 +17,6 @@ if nailcluster:
     tuh_data_dir = "/home/jovyan/mne_data/TUH_PRE/tuh_eeg_abnormal_clip/v2.0.0/edf/"
     embs_df_path = "/home/jovyan/EEGClip/scripts/text_preprocessing/embs_df.csv"
 
-
 # if using KISlurm :
 else:
     results_dir = "/home/ndirt/dev/neuro_ai/EEGClip/results/"
@@ -25,6 +24,7 @@ else:
     embs_df_path = (
         "/home/ndirt/dev/neuro_ai/EEGClip/scripts/text_preprocessing/embs_df.csv"
     )
+    zc_sentences_emb_dict_path = "/home/ndirt/dev/neuro_ai/EEGClip/scripts/text_embedding/zc_sentences_emb_dict.json"
 
 
 # path to models trained on various tasks. Handy for baselines comparisons

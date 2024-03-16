@@ -1,7 +1,8 @@
 import copy
 import random
 import re
-from scipy.spatial import distance
+import json
+import numpy as np
 import pandas as pd
 import pytorch_lightning as pl
 import torch
@@ -15,13 +16,14 @@ from torch import nn
 from transformers import AutoConfig, AutoModel, AutoTokenizer
 
 import configs.preprocess_config as preprocess_config
+from EEGClip.loss_methods import ClipLoss, SigLipLoss
 
 medication_list = ["keppra", "dilantin", "depakote"]
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 classifiers_dict = {
-        #'knn': KNeighborsClassifier(n_neighbors=10),
-        "logreg": LogisticRegression(random_state=0, max_iter=1000)
-    }
+    #'knn': KNeighborsClassifier(n_neighbors=10),
+    "logreg": LogisticRegression(random_state=0, max_iter=1000)
+}
 
 
 class TextEncoder(nn.Module):
@@ -32,13 +34,15 @@ class TextEncoder(nn.Module):
         text_encoder_trainable,
         string_sampling=False,
         lookup_strings=True,  # use previously computed embeddings
-        max_token_len = 512,
+        max_token_len=512,
     ):
         super().__init__()
         self.string_sampling = string_sampling
         self.lookup_strings = lookup_strings
         self.text_encoder_name = text_encoder_name
         self.max_token_len = max_token_len
+        with open(preprocess_config.zc_sentences_emb_dict_path, "r") as f:
+            self.zc_sentences_emb_dict = json.load(f)
 
         if self.lookup_strings:
             embs_df = pd.read_csv(preprocess_config.embs_df_path)
@@ -68,8 +72,6 @@ class TextEncoder(nn.Module):
                 param.requires_grad = text_encoder_trainable
 
             self.tokenizer = AutoTokenizer.from_pretrained(text_encoder_name)
-
-            self.target_token_idx = 0
 
     def forward(self, string_batch):
         string_batch = list(string_batch)
@@ -215,20 +217,11 @@ class ProjectionHead(nn.Module):
         return x_proj
 
 
-def cross_entropy(preds, targets, reduction="none"):
-    log_softmax = nn.LogSoftmax(dim=-1)
-    loss = (-targets * log_softmax(preds)).sum(1)
-    if reduction == "none":
-        return loss
-    elif reduction == "mean":
-        return loss.mean()
-
-
 class EEGClipModel(pl.LightningModule):
     def __init__(
         self,
         eeg_model_emb_dim=128,
-        text_model_emb_dim=768,
+        text_encoder_emb_dim=1024,
         projected_emb_dim=64,
         text_encoder_name="medicalai/ClinicalBERT",
         text_encoder_pretrained=True,
@@ -243,7 +236,8 @@ class EEGClipModel(pl.LightningModule):
         weight_decay=1e-6,
         n_chans=21,
         contrastive_loss_temperature=1,
-        text_encoder_max_token_len = 512,   
+        contrastive_loss_func="clip",
+        text_encoder_max_token_len=512,
         **kwargs,
     ):
         super().__init__()
@@ -253,6 +247,9 @@ class EEGClipModel(pl.LightningModule):
         self.weight_decay = weight_decay
         self.n_chans = n_chans
         self.contrastive_loss_temperature = contrastive_loss_temperature
+        self.contrastive_loss_func = contrastive_loss_func
+        self.text_encoder_emb_dim = text_encoder_emb_dim
+        print(self.text_encoder_emb_dim)
 
         self.text_encoder = TextEncoder(
             text_encoder_name=text_encoder_name,
@@ -260,7 +257,6 @@ class EEGClipModel(pl.LightningModule):
             text_encoder_trainable=text_encoder_trainable,
             string_sampling=string_sampling,
             max_token_len=text_encoder_max_token_len,
-
         )
 
         self.eeg_encoder = EEGEncoder(
@@ -271,7 +267,7 @@ class EEGClipModel(pl.LightningModule):
         )
 
         self.text_projection = ProjectionHead(
-            input_dim=text_model_emb_dim,
+            input_dim=self.text_encoder_emb_dim,
             output_dim=projected_emb_dim,
             dropout=dropout,
             num_fc_layers=num_fc_layers,
@@ -284,6 +280,19 @@ class EEGClipModel(pl.LightningModule):
             num_fc_layers=num_fc_layers,
             transpose=True,
         )
+
+        if contrastive_loss_func == "clip":
+            self.loss_fn = ClipLoss()
+            init_logit_scale = np.log(1 / 0.07)
+            init_logit_bias = 0
+        elif contrastive_loss_func == "siglip":
+            self.loss_fn = SigLipLoss()
+            init_logit_scale = np.log(10)
+            init_logit_bias = -10
+
+        self.logit_scale = nn.Parameter(torch.ones([]) * init_logit_scale)
+
+        self.logit_bias = nn.Parameter(torch.ones([]) * init_logit_bias)
 
         # save features and labels for classification
         self.features_train = []
@@ -311,9 +320,11 @@ class EEGClipModel(pl.LightningModule):
         # TODO : add other labels
 
         labels_pathological = [
-            1
-            if "true" in re.search(r"pathological: (\w+)", string).group(1).lower()
-            else 0
+            (
+                1
+                if "true" in re.search(r"pathological: (\w+)", string).group(1).lower()
+                else 0
+            )
             for string in string_batch
         ]
         labels_gender = [
@@ -349,19 +360,6 @@ class EEGClipModel(pl.LightningModule):
             labels,
         )
 
-    def loss_calculation(self, eeg_features_proj, text_features_proj, temperature):
-        logits = (text_features_proj @ eeg_features_proj.T) / temperature
-        targets = torch.eye(logits.shape[0]).to(device)
-        # shape: (batch_size * batch_size)
-        texts_loss = cross_entropy(logits, targets, reduction="none")
-        # shape: (batch_size)
-        eeg_loss = cross_entropy(logits.T, targets.T, reduction="none")
-        # shape: (batch_size)
-        loss = (eeg_loss + texts_loss) / 2.0
-        # shape: (batch_size)
-        loss = loss.mean()
-        return loss
-
     def training_step(self, batch, batch_idx):
         (
             eeg_features,
@@ -373,7 +371,10 @@ class EEGClipModel(pl.LightningModule):
         self.features_train.append(eeg_features_proj)
         self.labels_train.append(labels)
 
-        loss = self.loss_calculation(eeg_features_proj, text_features_proj,self.contrastive_loss_temperature)
+        # loss = self.loss_calculation(eeg_features_proj, text_features_proj,self.contrastive_loss_temperature)
+        loss = self.loss_fn(
+            eeg_features_proj, text_features_proj, self.logit_scale, self.logit_bias
+        )
         self.log("train_loss", loss, prog_bar=True)
 
         return loss
@@ -389,7 +390,9 @@ class EEGClipModel(pl.LightningModule):
         self.features_valid.append(eeg_features_proj)
         self.labels_valid.append(labels)
 
-        loss = self.loss_calculation(eeg_features_proj, text_features_proj,self.contrastive_loss_temperature)
+        loss = self.loss_fn(
+            eeg_features_proj, text_features_proj, self.logit_scale, self.logit_bias
+        )
         self.log("val_loss", loss, prog_bar=True)
 
         return loss
@@ -441,13 +444,26 @@ class EEGClipModel(pl.LightningModule):
                     )
                     # zero shot classification
                     zero_shot_preds = []
-                    s0, s1 = sentences_emb_dict[label_name]["s0"], sentences_emb_dict[label_name]["s1"]
-                    s0, s1 = self.text_projection(s0), self.text_projection(s1)
+                    emb_dict = self.text_encoder.zc_sentences_emb_dict[self.text_encoder.text_encoder_name][label_name]
+                    s0, s1 = (
+                        emb_dict["s0"],
+                        emb_dict["s1"],
+                    )
+                    s0, s1 = torch.Tensor(s0).to(device), torch.Tensor(s1).to(device)
+                    with torch.no_grad():
+                        s0, s1 = self.text_projection(s0), self.text_projection(s1)
+                    s0, s1 = s0.cpu().detach().numpy(), s1.cpu().detach().numpy()
+                    # (s0,s1) as a numpy array
+                    s = np.array([s0, s1])
+                    logits_per_eeg = features_valid @ s.T
+                    zero_shot_preds = torch.argmax(logits_per_eeg, dim=1)
+                    """
                     for f in features_valid:
                         d0 = distance.cosine(f, s0)
                         d1 = distance.cosine(f, s1)
                         pred_valid = 0 if d0 < d1 else 1
                         zero_shot_preds.append(pred_valid)
+                    """
                     balanced_acc = balanced_accuracy_score(
                         labels_valid[:, label_idx], zero_shot_preds
                     )
@@ -456,8 +472,6 @@ class EEGClipModel(pl.LightningModule):
                         balanced_acc,
                         prog_bar=True,
                     )
-
-
 
         self.features_train.clear()
         self.labels_train.clear()
@@ -469,6 +483,8 @@ class EEGClipModel(pl.LightningModule):
 
     def configure_optimizers(self):
         params = list(self.named_parameters())
+        print("params")
+        print([n for n, p in params])
 
         def is_backbone(n):
             return "text_encoder" in n

@@ -17,7 +17,7 @@ Generate the text embeddings using the [ClinicalBERT](https://huggingface.co/med
 
 Train the EEGClipModel, defined in ```EEGClip/clip_models.py```, on the TUH EEG Abnormal Corpus (first 70% of the subjects for training) 
 
-```python3 scripts/clip/train_eegclip_tuh.py```
+```python3 scripts/eegclip_train_eval.py```
 
 
 ### 2. Evaluation on the TUH EEG Abnormal Corpus

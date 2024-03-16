@@ -1,5 +1,7 @@
 import os
 import pandas as pd
+import torch
+device = torch.device("cuda")
 
 def text_preprocessing(description_df:pd.DataFrame, processed_categories:str="all" ):
 
@@ -51,3 +53,4 @@ def text_preprocessing(description_df:pd.DataFrame, processed_categories:str="al
         df.loc[i,'report'] += category + ': ' + str(value) + ', '
   df['report'].replace('', 'no data', inplace=True)
   return df
+
