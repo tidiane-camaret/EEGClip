@@ -15,14 +15,14 @@ paths to the different datasets/models. Feel free to modify
 if nailcluster:
     results_dir = "/home/jovyan/EEGClip/results/"
     tuh_data_dir = "/home/jovyan/mne_data/TUH_PRE/tuh_eeg_abnormal_clip/v2.0.0/edf/"
-    embs_df_path = "/home/jovyan/EEGClip/scripts/text_preprocessing/embs_df.csv"
+    embs_df_path = "/home/jovyan/EEGClip/scripts/text_embedding/embs_df.csv"
 
 # if using KISlurm :
 else:
     results_dir = "/home/ndirt/dev/neuro_ai/EEGClip/results/"
     tuh_data_dir = "/data/datasets/TUH/EEG/tuh_eeg_abnormal/v2.0.0/edf/"
     embs_df_path = (
-        "/home/ndirt/dev/neuro_ai/EEGClip/scripts/text_preprocessing/embs_df.csv"
+        "/home/ndirt/dev/neuro_ai/EEGClip/scripts/text_embedding/embs_df.csv"
     )
     zc_sentences_emb_dict_path = "/home/ndirt/dev/neuro_ai/EEGClip/scripts/text_embedding/zc_sentences_emb_dict.json"
 

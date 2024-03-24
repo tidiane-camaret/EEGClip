@@ -13,7 +13,7 @@ eegclip:
   weight_decay: 5e-4
   dropout: 0.1
   projected_emb_dim: 64
-  num_fc_layers: 3
+  num_fc_layers: 2
   eeg_encoder:
     pretrained: false
     trainable: true

@@ -154,45 +154,12 @@ class ProjectionHead(nn.Module):
         self,
         input_dim=128,
         output_dim=128,
-        dropout=0.1,
+        dropout_rate=0.1,
         num_fc_layers=2,
         transpose=False,
     ):
         super().__init__()
-        """ # TODO : this config sucks. it shouldnt, see why
-        self.layers = nn.ModuleList()
-        for i in range(num_layers):
-            if i == 0:
-                self.layers.append(nn.Linear(input_dim, output_dim))
-            else:
-                self.layers.append(nn.Linear(output_dim, output_dim))
-        self.dropout = nn.Dropout(dropout)
-        
-    def forward(self, x):
-        for layer in self.layers:
-            x = self.dropout(F.relu(layer(x)))
-        return x
-        
-        super().__init__()
-        embedding_dim = input_dim
-        projection_dim = output_dim
-        self.projection = nn.Linear(embedding_dim, projection_dim)
-        self.gelu = nn.GELU()
-        self.fc = nn.Linear(projection_dim, projection_dim)
-        self.dropout = nn.Dropout(dropout)
-        self.layer_norm = nn.LayerNorm(projection_dim)
-    
-    def forward(self, x):
-        projected = self.projection(x)
-        x = self.gelu(projected)
-        x = self.fc(x)
-        x = self.dropout(x)
-        x = x + projected
-        x = self.layer_norm(x)
-        return x
-
         """
-        ## Do the same, but with variable number of layers
         self.projection_layer = nn.Linear(input_dim, output_dim)
         self.fc_layers = nn.ModuleList()
 
@@ -215,6 +182,40 @@ class ProjectionHead(nn.Module):
         if self.transpose:
             x_proj = x_proj.transpose(1, 2)  # [B,Enc_size,N_pred]
         return x_proj
+        """
+        super(ProjectionHead, self).__init__()
+        self.num_layers = num_fc_layers
+        self.transpose = transpose
+        layers = nn.ModuleList()
+
+        # Input projection layer
+        layers.append(nn.Linear(input_dim, output_dim))
+        layers.append(nn.BatchNorm1d(output_dim))
+        layers.append(nn.ReLU())
+        layers.append(nn.Dropout(dropout_rate))
+
+        # Hidden layers
+        for _ in range(num_fc_layers - 2):
+            layers.append(nn.Linear(output_dim, output_dim))
+            layers.append(nn.BatchNorm1d(output_dim))
+            layers.append(nn.ReLU())
+            layers.append(nn.Dropout(dropout_rate))
+
+        # Output projection layer
+        layers.append(nn.Linear(output_dim, output_dim))
+
+        self.layers = layers
+        self.projection = nn.Sequential(*layers)
+    def forward(self, x):
+        for layer in self.layers:
+            # check if layer is batchnorm
+            if isinstance(layer, nn.BatchNorm1d) and self.transpose:
+                x = layer(x.transpose(1, 2)).transpose(1, 2)
+            else:
+                x = layer(x)
+            
+        return x
+        #return self.projection(x)
 
 
 class EEGClipModel(pl.LightningModule):
@@ -229,7 +230,7 @@ class EEGClipModel(pl.LightningModule):
         eeg_model_pretrained=False,
         eeg_model_trainable=True,
         string_sampling=False,
-        dropout=0.1,
+        dropout_rate=0.1,
         num_fc_layers=1,
         lr=1e-3,
         lr_frac_lm=0,
@@ -269,14 +270,14 @@ class EEGClipModel(pl.LightningModule):
         self.text_projection = ProjectionHead(
             input_dim=self.text_encoder_emb_dim,
             output_dim=projected_emb_dim,
-            dropout=dropout,
+            dropout_rate=dropout_rate,
             num_fc_layers=num_fc_layers,
         )
 
         self.eeg_projection = ProjectionHead(
             input_dim=eeg_model_emb_dim,
             output_dim=projected_emb_dim,
-            dropout=dropout,
+            dropout_rate=dropout_rate,
             num_fc_layers=num_fc_layers,
             transpose=True,
         )
@@ -312,7 +313,7 @@ class EEGClipModel(pl.LightningModule):
 
         # print("PROJECTING EEG FEATURES")
         eeg_features_proj = self.eeg_projection(eeg_features)
-        eeg_features_proj = torch.mean(eeg_features_proj, dim=2)
+        eeg_features_proj = torch.mean(eeg_features_proj, dim=1) # average over the time dimension
         # print("PROJECTING TEXT FEATURES")
         text_features_proj = self.text_projection(text_features)
 
@@ -450,9 +451,12 @@ class EEGClipModel(pl.LightningModule):
                         emb_dict["s1"],
                     )
                     s0, s1 = torch.Tensor(s0).to(device), torch.Tensor(s1).to(device)
+                    # add batch dimension to s0 and s1
+                    s0, s1 = s0.unsqueeze(0), s1.unsqueeze(0)
                     with torch.no_grad():
                         s0, s1 = self.text_projection(s0), self.text_projection(s1)
                     s0, s1 = s0.cpu().detach().numpy(), s1.cpu().detach().numpy()
+                    s0, s1 = s0[0], s1[0]
                     # (s0,s1) as a numpy array
                     s = np.array([s0, s1])
                     logits_per_eeg = features_valid @ s.T
