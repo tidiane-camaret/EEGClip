@@ -2,11 +2,13 @@ import copy
 import json
 
 import configs.preprocess_config as preprocess_config
-
+import numpy as np
 import pandas as pd
 import torch
 from transformers import AutoModel, AutoTokenizer
 
+# check nb of available GPUs
+print(torch.cuda.device_count())
 def sentence_embedder(sentence,tokenizer,model,max_length=512):
     with torch.no_grad():
         desc_tokenized = tokenizer(sentence, return_tensors="pt", max_length=max_length, padding=True, truncation=True).to(device)
@@ -36,11 +38,11 @@ from EEGClip.text_preprocessing import text_preprocessing
 embs_df = text_preprocessing(dataset.description)
 embs_df = embs_df[["report"]]
 """
-embs_df = pd.read_csv("scripts/text_preprocessing/embs_df.csv")
+embs_df = pd.read_csv("scripts/text_embedding/embs_df.csv")
 
 
-model_name = "Salesforce/SFR-Embedding-Mistral"
-max_length = 512
+model_name = "medalpaca/medalpaca-13b" #"WhereIsAI/UAE-Large-V1"
+max_length = 2512
 """
 bert-base-uncased
 "BAAI/bge-large-en-v1.5"
@@ -50,10 +52,14 @@ microsoft/BioGPT-Large-PubMedQA
 microsoft/BiomedCLIP-PubMedBERT_256-vit_base_patch16_224
 mixedbread-ai/mxbai-embed-large-v1
 """
+
+
 tokenizer = AutoTokenizer.from_pretrained(model_name)
-model = AutoModel.from_pretrained(model_name)
-model.to(device)
-"""
+model = AutoModel.from_pretrained(model_name, device_map="auto")
+
+#model.to(device)
+
+
 embs = []
 
 for i, r in enumerate(embs_df["report"]):
@@ -62,12 +68,25 @@ for i, r in enumerate(embs_df["report"]):
     emb = sentence_embedder(r, tokenizer, model, max_length)
 
     embs.append(emb)
+"""
 
+# do this in batches
+
+batch_size = 8
+
+embs = []
+for i in range(0, len(embs_df["report"]), batch_size):
+    print(i, "/", len(embs_df["report"]))
+    sentences = embs_df["report"].iloc[i:i + batch_size].to_list()
+
+    embs_batch = sentence_embedder(sentences, tokenizer, model, max_length)
+    embs.append(embs_batch)
+"""
 embs_df[model_name] = np.array(embs).tolist()
 
-embs_df.to_csv("scripts/text_preprocessing/embs_df.csv")
+embs_df.to_csv("scripts/text_embedding/embs_df.csv")
 
-"""
+
 ### Encoding of zero-shot sentences
 
 zc_sentences_dict = {
@@ -75,7 +94,8 @@ zc_sentences_dict = {
         "s0": "This is a normal recording, from an healthy patient",
         "s1": "This an pathological recording, from a diseased patient  ",
     },
-    "gender": {"s0": "The patient is female", "s1": "The patient is male"},
+    "gender": {"s0": "The patient is female",
+                "s1": "The patient is male"},
     "under_50": {
         "s0": "The patient is over 50 years old",
         "s1": "The patient is under 50 years old",
@@ -83,6 +103,24 @@ zc_sentences_dict = {
     "medication": {
         "s0": "The patient is not taking anti-epileptic medication",
         "s1": "The patient is taking anti-epileptic medication",
+    },
+    "pathological_gender": {
+        "s00": "This is a normal recording, from an healthy male patient",
+        "s01": "This is a normal recording, from an healthy female patient",
+        "s10": "This an pathological recording, from a diseased male patient",
+        "s11": "This an pathological recording, from a diseased female patient"
+    },
+    "pathological_under_50": {
+        "s00": "This is a normal recording, from an healthy patient over 50 years old",
+        "s01": "This is a normal recording, from an healthy patient under 50 years old",
+        "s10": "This an pathological recording, from a diseased patient over 50 years old",
+        "s11": "This an pathological recording, from a diseased patient under 50 years old"
+    },
+    "gender_under_50": {
+        "s00": "The patient is a male over 50 years old",
+        "s01": "The patient is a male under 50 years old",
+        "s10": "The patient is a female over 50 years old",
+        "s11": "The patient is a female under 50 years old"
     },
 }
 

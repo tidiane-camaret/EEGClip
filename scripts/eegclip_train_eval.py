@@ -114,6 +114,7 @@ def run_eegclip_training(args):
     os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
     # ## Load data
+
     dataset = TUHAbnormal(
         path=tuh_data_dir,
         recording_ids=range(
@@ -207,11 +208,13 @@ def run_eegclip_training(args):
         window_train_set.transform = lambda x: x * 1e6
         window_valid_set.transform = lambda x: x * 1e6
 
+    
+
     train_loader = torch.utils.data.DataLoader(
         window_train_set,
         batch_size=batch_size,
         shuffle=True,
-        num_workers=num_workers,
+        num_workers=num_workers//2,
         drop_last=True,
     )
 
@@ -219,7 +222,7 @@ def run_eegclip_training(args):
         window_valid_set,
         batch_size=batch_size,
         shuffle=True,
-        num_workers=num_workers,
+        num_workers=num_workers//2,
         drop_last=False,
     )
 

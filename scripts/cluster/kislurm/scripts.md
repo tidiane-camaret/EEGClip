@@ -9,10 +9,13 @@ sinfo
 sfree
 
 # start an interactive session
-srun -p ml_gpu-rtx2080 -c 20 --mem 24000 --time=3:00:00 --pty bash 
-# faster request of resources : 
-srun -p ml_gpu-rtx2080 -c 20 --time=3:00:00 --pty bash 
 srun -p ml_gpu-rtx2080 --time=3:00:00 --pty bash 
+
+# other request with larger resources : 
+srun -p ml_gpu-rtx2080 -c 20 --time=3:00:00 --pty bash 
+srun -p ml_gpu-rtx2080 -c 20 --mem 24000 --time=3:00:00 --pty bash 
+srun -p ml_gpu-rtx2080 -c 20 --mem 24000 --gres=gpu:2 --time=3:00:00 --pty bash 
+
 
 # tmux
 tmux new-session -s <name>

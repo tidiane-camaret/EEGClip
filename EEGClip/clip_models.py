@@ -373,7 +373,7 @@ class EEGClipModel(pl.LightningModule):
         self.labels_train.append(labels)
 
         # loss = self.loss_calculation(eeg_features_proj, text_features_proj,self.contrastive_loss_temperature)
-        loss = self.loss_fn(
+        loss, logits_per_image = self.loss_fn(
             eeg_features_proj, text_features_proj, self.logit_scale, self.logit_bias
         )
         self.log("train_loss", loss, prog_bar=True)
@@ -391,10 +391,13 @@ class EEGClipModel(pl.LightningModule):
         self.features_valid.append(eeg_features_proj)
         self.labels_valid.append(labels)
 
-        loss = self.loss_fn(
+        loss, logits_per_image = self.loss_fn(
             eeg_features_proj, text_features_proj, self.logit_scale, self.logit_bias
         )
         self.log("val_loss", loss, prog_bar=True)
+
+        print("logits_per_image")
+        print(logits_per_image.shape)
 
         return loss
 
@@ -427,11 +430,11 @@ class EEGClipModel(pl.LightningModule):
                 torch.sum(labels_valid) / labels_valid.shape[0],
             )
 
-            # loop through classifiers
-            for classifier_name, classifier in classifiers_dict.items():
-                for label_idx, label_name in enumerate(
-                    ["pathological", "gender", "under_50", "medication"]
-                ):
+            for label_idx, label_name in enumerate(
+                ["pathological", "gender", "under_50", "medication"]
+            ):
+                for classifier_name, classifier in classifiers_dict.items():
+
                     # classification
                     classifier.fit(features_train, labels_train[:, label_idx])
                     preds = classifier.predict(features_valid)
@@ -443,39 +446,78 @@ class EEGClipModel(pl.LightningModule):
                         balanced_acc,
                         prog_bar=True,
                     )
-                    # zero shot classification
-                    zero_shot_preds = []
-                    emb_dict = self.text_encoder.zc_sentences_emb_dict[self.text_encoder.text_encoder_name][label_name]
-                    s0, s1 = (
-                        emb_dict["s0"],
-                        emb_dict["s1"],
-                    )
-                    s0, s1 = torch.Tensor(s0).to(device), torch.Tensor(s1).to(device)
-                    # add batch dimension to s0 and s1
-                    s0, s1 = s0.unsqueeze(0), s1.unsqueeze(0)
+                # zero shot classification
+                zero_shot_preds = []
+                emb_dict = self.text_encoder.zc_sentences_emb_dict[self.text_encoder.text_encoder_name][label_name]
+                s0, s1 = (
+                    emb_dict["s0"],
+                    emb_dict["s1"],
+                )
+                s0, s1 = torch.Tensor(s0).to(device), torch.Tensor(s1).to(device)
+                # add batch dimension to s0 and s1
+                s0, s1 = s0.unsqueeze(0), s1.unsqueeze(0)
+                with torch.no_grad():
+                    s0, s1 = self.text_projection(s0), self.text_projection(s1)
+                s0, s1 = s0.cpu().detach().numpy(), s1.cpu().detach().numpy()
+                s0, s1 = s0[0], s1[0]
+                # (s0,s1) as a numpy array
+                s = np.array([s0, s1])
+                logits_per_eeg = features_valid @ s.T
+                zero_shot_preds = torch.argmax(logits_per_eeg, dim=1)
+                balanced_acc = balanced_accuracy_score(
+                    labels_valid[:, label_idx], zero_shot_preds
+                )
+                self.log(
+                    f"val_acc_zs_{label_name}",
+                    balanced_acc,
+                    prog_bar=True,
+                )
+
+            # zero shot classification, multilabel
+            for label_idx, label_name in zip([[0,1], [0,2], [1,2]], ["pathological_gender", "pathological_under_50","gender_under_50"]):
+                multilabels_valid = labels_valid[:, label_idx[0]] + 2 * labels_valid[:, label_idx[1]]
+                emb_dict = self.text_encoder.zc_sentences_emb_dict[self.text_encoder.text_encoder_name][label_name]
+                s_ = [
+                    emb_dict["s00"],
+                    emb_dict["s01"],
+                    emb_dict["s10"],
+                    emb_dict["s11"],
+                ]
+                s = []
+                for si in s_:
+                    si = torch.Tensor(si).to(device)
+                    si = si.unsqueeze(0)
                     with torch.no_grad():
-                        s0, s1 = self.text_projection(s0), self.text_projection(s1)
-                    s0, s1 = s0.cpu().detach().numpy(), s1.cpu().detach().numpy()
-                    s0, s1 = s0[0], s1[0]
-                    # (s0,s1) as a numpy array
-                    s = np.array([s0, s1])
-                    logits_per_eeg = features_valid @ s.T
-                    zero_shot_preds = torch.argmax(logits_per_eeg, dim=1)
-                    """
-                    for f in features_valid:
-                        d0 = distance.cosine(f, s0)
-                        d1 = distance.cosine(f, s1)
-                        pred_valid = 0 if d0 < d1 else 1
-                        zero_shot_preds.append(pred_valid)
-                    """
-                    balanced_acc = balanced_accuracy_score(
-                        labels_valid[:, label_idx], zero_shot_preds
-                    )
-                    self.log(
-                        f"val_acc_zs_{classifier_name}_{label_name}",
-                        balanced_acc,
-                        prog_bar=True,
-                    )
+                        si = self.text_projection(si)
+                    si = si.cpu().detach().numpy()
+                    si = si[0]
+                    s.append(si)
+                s = np.array(s)
+                logits_per_eeg = features_valid @ s.T
+                zero_shot_preds = torch.argmax(logits_per_eeg, dim=1)
+                balanced_acc = balanced_accuracy_score(
+                    multilabels_valid, zero_shot_preds
+                )
+                self.log(
+                    f"val_acc_zs_{label_name}",
+                    balanced_acc,
+                    prog_bar=True,
+                )
+                balanced_acc_label_0 = balanced_accuracy_score(
+                    multilabels_valid==0, zero_shot_preds==0
+                )
+                self.log(
+                    f"val_acc_zs_{label_name}_label_0",
+                    balanced_acc_label_0,
+                    prog_bar=True,
+                )
+
+                    
+
+
+                
+                
+                
 
         self.features_train.clear()
         self.labels_train.clear()

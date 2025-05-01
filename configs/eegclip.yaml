@@ -23,8 +23,8 @@ eegclip:
   text_encoder:
     pretrained: true
     trainable: false
-    emb_dim: 1024
-    pretrained_name: "mixedbread-ai/mxbai-embed-large-v1"
+    emb_dim: 4096
+    pretrained_name: "Salesforce/SFR-Embedding-Mistral" # "mixedbread-ai/mxbai-embed-large-v1"
     string_sampling: false
     lr_frac_lm: 0
     max_token_len: 512

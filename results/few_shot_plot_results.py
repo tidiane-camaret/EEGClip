@@ -50,7 +50,7 @@ sns.set(style="whitegrid")
 fig, axs = plt.subplots(2, 3, figsize=(15, 10))
 
 for i, task in enumerate(runs_df.task_name.unique()):
-    ax = axs[i//3, i%3]
+    ax = axs[i//3, i%3]} Hello
     #drop lines where "weights" contains the task
     sns.lineplot(data=runs_df[runs_df.task_name==task][~runs_df.weights.str.contains(task)], x="train_frac", y="accuracy", hue="weights", ax=ax, )
     ax.set_title(task)
