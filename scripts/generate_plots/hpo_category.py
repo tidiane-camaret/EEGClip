@@ -39,7 +39,11 @@ plot_data = runs_df.melt(
 
 # Clean up task names (remove "accuracy_" prefix)
 plot_data["task"] = plot_data["task"].str.replace("accuracy_", "")
+plot_data["task"] = plot_data["task"].str.replace("under_50", "age")
+
 plot_data["task"] = plot_data["task"].str.capitalize()
+plot_data["category"] = plot_data["category"].str.lower()
+
 
 # Set plot style with larger elements
 plt.figure(figsize=(20, 14))
@@ -69,19 +73,19 @@ ax = sns.barplot(
 plt.ylim(0.45, 0.8)
 
 # Customize plot appearance
-plt.title("Classification Accuracy by EEG Report Section", fontsize=32, fontweight='bold', pad=20)
-plt.xlabel("Report Section", fontsize=28, fontweight='bold', labelpad=15)
-plt.ylabel("Balanced Accuracy", fontsize=28, fontweight='bold', labelpad=15)
+# plt.title("Classification Accuracy by EEG Report Section", fontsize=32, fontweight='bold', pad=20)
+plt.xlabel("Report Section", fontsize=50, fontweight='bold', labelpad=15)
+plt.ylabel("Balanced Accuracy", fontsize=50, fontweight='bold', labelpad=15)
 
 # Rotate x-axis labels for readability and increase font size
-plt.xticks(rotation=45, ha='right', fontsize=22)
-plt.yticks(fontsize=22)
+plt.xticks(rotation=45, ha='right', fontsize=40)
+plt.yticks(fontsize=50)
 
 # Adjust legend
 plt.legend(
     title="Evaluation Task", 
-    title_fontsize=26,
-    fontsize=24, 
+    title_fontsize=40,
+    fontsize=35, 
     loc='upper right', 
     frameon=True,
     framealpha=0.95,

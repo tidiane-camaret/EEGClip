@@ -3,9 +3,11 @@ import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 import matplotlib as mpl
+from matplotlib.ticker import FixedLocator
+from sympy import Si
 
 # Define task name as in your original script
-task_name = "pathological"
+task_name = "gender"
 
 # Load your actual data
 runs_df = pd.read_csv("results/classif_few_shot_test_set.csv")
@@ -45,10 +47,23 @@ fig, ax = plt.subplots(1, 1, figsize=(20, 14))
 # Filter data for specific task
 task_data = runs_df[runs_df.task_name == task_name]
 
-# Create the basic plot
+# ======= METHOD 1: TRANSFORM DATA FOR EVENLY SPACED X-AXIS =======
+# Define the original data positions and their corresponding display positions
+data_positions = [2, 5, 10, 20, 50]
+display_positions = [0, 1, 2, 3, 4]  # Evenly spaced positions
+fraction_labels = ["1/2", "1/5", "1/10", "1/20", "1/50"]  # Use strings for cleaner display
+
+# Create a mapping between actual data points and display positions
+position_map = dict(zip(data_positions, display_positions))
+
+# Create a new column for the transformed x values
+task_data = task_data.copy()
+task_data['display_x'] = task_data['train_frac'].apply(lambda x: position_map.get(x, x))
+
+# Create the plot with transformed x values
 line_plot = sns.lineplot(
     data=task_data,
-    x="train_frac",
+    x="display_x",  # Use the transformed positions
     y="accuracy",
     hue="weights",
     ax=ax,
@@ -56,6 +71,10 @@ line_plot = sns.lineplot(
     dashes=False,
     linewidth=6  # Much thicker lines
 )
+
+# Set the x-tick positions and labels
+ax.set_xticks(display_positions)
+ax.set_xticklabels(fraction_labels)
 
 # Get the unique weight types to assign specific markers
 weight_types = task_data['weights'].unique()
@@ -73,36 +92,33 @@ for i, line in enumerate(ax.get_lines()):
         
         # Apply marker settings
         line.set_marker(marker_style)
-        line.set_markersize(45)  # Much larger markers
+        line.set_markersize(55)  # Much larger markers
         line.set_markerfacecolor('white')  # White filled
         line.set_markeredgecolor(color)    # Colored outline
         line.set_markeredgewidth(3.5)      # Much thicker outline
 
-# Set x-axis ticks and labels as fractions
-ax.set_xticks([2, 5, 10, 20, 50])
-ax.set_xticklabels([1/2, 1/5, 1/10, 1/20, 1/50])
-
 # Customize axis labels and title with much larger fonts
-ax.set_xlabel("Percentage of the training set used for fine-tuning", fontsize=40, fontweight='bold')
-ax.set_ylabel("Balanced accuracy", fontsize=40, fontweight='bold')
-ax.set_title(f"Evaluation Task : {task_name.capitalize()}", fontsize=40, fontweight='bold')
+ax.set_xlabel("Percentage of the training set", fontsize=50, fontweight='bold')
+ax.set_ylabel("Balanced accuracy", fontsize=50, fontweight='bold')
+task_name = "age" if task_name == "under_50" else task_name
+ax.set_title(f"Evaluation Task : {task_name.capitalize()}", fontsize=50, fontweight='bold')
 
 # Customize tick parameters with much larger font
-ax.tick_params(axis='both', which='major', labelsize=35, length=10, width=2)
+ax.tick_params(axis='both', which='major', labelsize=55, length=10, width=2)
 
-legend = plt.legend(loc='best', handlelength=3, fontsize=35, frameon=True, 
-                    framealpha=0.95, edgecolor='black', borderpad=1.0,
-                    labelspacing=1.2, handletextpad=1.5, ncol=1)
+# Create and customize the legend
+legend = plt.legend(loc='best', handlelength=3, fontsize=50, frameon=True, 
+                    framealpha=0.95, edgecolor='black', borderpad=0.3,
+                    labelspacing=0.5, handletextpad=1.0, ncol=1)
 
 legend_texts = [text.get_text() for text in legend.get_texts()]
 
 # Ensure legend shows correct markers with white fill and colored outlines
 for i, handle in enumerate(legend.legendHandles):
-    #handle.set_linestyle(':')
     handle.set_linewidth(6)
     
     # Make sure marker is displayed in legend
-    handle.set_markersize(35)  # Slightly smaller than in plot to save space
+    handle.set_markersize(55)  # Slightly smaller than in plot to save space
     
     # Get line color and apply it to marker edge
     color = handle.get_color()
@@ -117,6 +133,13 @@ for i, handle in enumerate(legend.legendHandles):
     else:
         # Default to circle if label not found in dictionary
         handle.set_marker('o')
+
+# Set grid lines to only show for major ticks
+ax.grid(which='major', linestyle='-', linewidth=0.8, alpha=0.3)
+ax.grid(which='minor', linestyle='--', linewidth=0.5, alpha=0.2)
+
+# Turn off minor ticks
+ax.minorticks_off()
 
 # Save the figure
 plt.tight_layout()

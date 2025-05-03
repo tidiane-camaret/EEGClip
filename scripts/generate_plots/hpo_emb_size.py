@@ -26,19 +26,12 @@ plt.figure(figsize=(20, 14))
 colors = sns.color_palette("Set2", 4)
 
 # Create the plot with tasks in the specified order
-# Define markers for each task
-markers = {
-    'accuracy_pathological': 'o', 
-    'accuracy_age': 's', 
-    'accuracy_gender': '^', 
-    'accuracy_medication': 'D'
-}
+
 
 # Plot each line with proper styling
 for i, col in enumerate(['accuracy_pathological', 'accuracy_age', 'accuracy_gender', 'accuracy_medication']):
     # Get color and marker for this task
     color = colors[i]
-    marker = markers[col]
     
     # Clean label (remove "accuracy_" prefix and capitalize)
     label = col.replace('accuracy_', '').capitalize()
@@ -47,13 +40,8 @@ for i, col in enumerate(['accuracy_pathological', 'accuracy_age', 'accuracy_gend
     plt.plot(
         runs_df['projected_emb_dim'], 
         runs_df[col], 
-        marker=marker,
-        markersize=18,
-        markerfacecolor='white', 
-        markeredgecolor=color,
-        markeredgewidth=2.5,
         color=color, 
-        linewidth=4,
+        linewidth=6,
         label=label
     )
 
@@ -61,25 +49,24 @@ for i, col in enumerate(['accuracy_pathological', 'accuracy_age', 'accuracy_gend
 plt.ylim(0.5, 0.9)
 
 # Customize plot appearance
-plt.title("Accuracy vs. Dimension of Projected Encodings", fontsize=32, fontweight='bold', pad=20)
-plt.xlabel("Dimension of Projected Encodings", fontsize=28, fontweight='bold', labelpad=15)
-plt.ylabel("Balanced Accuracy", fontsize=28, fontweight='bold', labelpad=15)
+#plt.title("Accuracy vs. Dimension of Projected Encodings", fontsize=32, fontweight='bold', pad=20)
+plt.xlabel("Dimension of the shared embedding space", fontsize=50, fontweight='bold', labelpad=15)
+plt.ylabel("Balanced Accuracy", fontsize=50, fontweight='bold', labelpad=15)
 
 # Set tick parameters with larger font
-plt.tick_params(axis='both', which='major', labelsize=22)
+plt.tick_params(axis='both', which='major', labelsize=50)
 
 # Add grid
 plt.grid(True, alpha=0.3, linewidth=1.5)
 
 # Customize legend with dotted lines
-legend = plt.legend(fontsize=24, title="Task", title_fontsize=26, 
+legend = plt.legend(fontsize=35, title="Task", title_fontsize=40, 
                    frameon=True, framealpha=0.95, edgecolor='black',
                    loc='best')
 
 # Make legend handles use dotted lines to match our earlier plots
 for handle in legend.legendHandles:
-    handle.set_linestyle(':')
-    handle.set_linewidth(3)
+    handle.set_linewidth(6)
 
 # Tight layout
 plt.tight_layout()

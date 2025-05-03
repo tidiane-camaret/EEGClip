@@ -24,6 +24,8 @@ plot_data = runs_df.melt(
 
 # Clean up task names (remove "accuracy_" prefix)
 plot_data["task"] = plot_data["task"].str.replace("accuracy_", "")
+plot_data["task"] = plot_data["task"].str.replace("under_50", "age")
+
 plot_data["task"] = plot_data["task"].str.capitalize()
 
 # Set plot style with larger elements
@@ -50,28 +52,28 @@ ax = sns.barplot(
 )
 
 # Set y-axis range from 0.5 to 1
-plt.ylim(0.45, 0.9)
+plt.ylim(0.45, 0.95)
 
 # Add grid lines on y-axis
 plt.grid(axis='y', alpha=0.3, linewidth=1.5)
 
 # Customize plot appearance
-plt.title("Classification Accuracy by Pretrained Text Model", fontsize=32, fontweight='bold', pad=20)
-plt.xlabel("Pretrained Text Model", fontsize=28, fontweight='bold', labelpad=15)
-plt.ylabel("Balanced Accuracy", fontsize=28, fontweight='bold', labelpad=15)
+#plt.title("Classification Accuracy by Pretrained Text Model", fontsize=32, fontweight='bold', pad=20)
+plt.xlabel("Pretrained Text Encoder", fontsize=50, fontweight='bold', labelpad=15)
+plt.ylabel("Balanced Accuracy", fontsize=50, fontweight='bold', labelpad=15)
 
 # Rotate x-axis labels for readability and increase font size
-plt.xticks(rotation=45, ha='right', fontsize=22)
-plt.yticks(fontsize=22)
+plt.xticks(rotation=45, ha='right', fontsize=40)
+plt.yticks(fontsize=50)
 
 # Customize legend
 legend = plt.legend(
     title="Task", 
-    title_fontsize=26,
-    fontsize=24, 
+    title_fontsize=40,
+    fontsize=35, 
     loc='upper right', 
     frameon=True,
-    framealpha=0.95,
+    framealpha=0.50,
     edgecolor='black'
 )
 
