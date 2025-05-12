@@ -146,4 +146,7 @@ results/hydra
 scripts/cluster/logs
 scripts/hpo/wandb/
 .ckpt
+# large files
 scripts/text_embedding/embs_df.csv
+scripts/experiments/text_analysis/report_df_embs.csv
+bfg.jar
