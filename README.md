@@ -1,42 +1,96 @@
-# EEGClip : Learning EEG representations using natural language descriptions
+# EEGClip: Learning EEG Representations from Natural Language Descriptions
 
-## Running instructions
+EEGClip is a contrastive learning framework that aligns EEG time series data with their corresponding clinical text descriptions in a shared embedding space. Inspired by CLIP (Contrastive Language-Image Pretraining), EEGClip enables versatile EEG representation learning for improved pathology detection and other downstream tasks in low-data regimes.
 
-*Please install the required dependecies using ```pip install -r requirements.txt```, as well as the local package with ```pip install -e .```*
-*Note : you may need to modify the path to the datasets and to the pretrained models in ```EEGClip_config.py```*
-
-*Detailed documentation for each parameter can be found in the respective scripts.*
-
-### 0. Preprocessing
-
-Generate the text embeddings using the [ClinicalBERT](https://huggingface.co/medicalai/ClinicalBERT) model, saved in scripts/text_preprocessing/embs_df.csv
-
-```python3 scripts/text_preprocessing/text_embedding.py```
-
-### 1. Contrastive training on the TUH EEG Abnormal Corpus
-
-Train the EEGClipModel, defined in ```EEGClip/clip_models.py```, on the TUH EEG Abnormal Corpus (first 70% of the subjects for training) 
-
-```python3 scripts/eegclip_train_eval.py```
+<p align="center">
+  <img src="results/publication_plots/few_shot_under_50.png" alt="EEGClip results on the age classification task" width="600"/>
+</p>
 
 
-### 2. Evaluation on the TUH EEG Abnormal Corpus
+## Quick Start
 
+### Installation
 
-#### 2.1. Label decoding
+```bash
+# Clone the repository
+git clone https://github.com/tidiane-camaret/EEGClip.git
+cd EEGClip
 
-Trains and evaluates a classifier model on a given task (pathological, age, gender ...) using the frozen EEG encoder trained in step 1. (first 70% of the subjects for training, last 30% for testing)
+# Install dependencies
+pip install -r requirements.txt
+pip install -e .
+```
 
-```python3 scripts/classif/classification_tuh.py```
+*Note: You may need to modify paths to datasets and pretrained models in `configs/preprocess_config.py`*
 
-It is possible to reduce the training set **(few-shot decoding)** by specifing the **--train_frac** parameter (by how much the training set should be divided, eg 5 for 20% of the training set).
+### 1. Preprocessing
 
-It is also possible to change the encoder to a fully trainable one using the **--weights** and **--freeze_encoder** parameters. 
+Generate text embeddings using the ClinicalBERT model:
 
-#### 2.2. Zero-shot label decoding
+```bash
+python scripts/text_preprocessing/text_embedding.py
+```
 
-Evaluates zero-shot accuracy of the EEG encoder on a given task (pathological, age, gender ...)
-For a given recording, we first extract its representations, and measure its distance to anchor sentences ("This is a normal recording", etc..)
+### 2. Training EEGClip
 
-```python3 scripts/classif/classification_zero_shot_tuh.py```
+Train the EEGClip model on the TUH EEG Abnormal Corpus:
 
+```bash
+python scripts/eegclip_train_eval.py
+```
+
+### 3. Evaluation 
+
+#### 3.1 Standard Classification
+
+Train and evaluate a classifier using the frozen EEG encoder:
+
+```bash
+python scripts/classif/classification_tuh.py
+```
+
+Options:
+- `--task_name`: Classification task (pathological, age, gender, etc.)
+- `--train_frac`: Control size of training data for few-shot experiments
+- `--weights`: Select pretrained weights
+- `--freeze_encoder`: Toggle EEG encoder freezing
+
+#### 3.2 Zero-shot Classification
+
+Evaluate the model's ability to classify EEG recordings using only text prompts without additional training:
+
+```bash
+python scripts/classif/classification_zero_shot_tuh.py
+```
+
+## Citation
+
+If you use EEGClip in your research, please cite our paper:
+
+```bibtex
+@article{camaret2023eegclip,
+  title={EEG-CLIP: Learning EEG representations from natural language descriptions},
+  author={Camaret, Tidiane N'dir and Schirrmeister, Robin Tibor},
+  journal={arXiv preprint arXiv:2305.10304},
+  year={2023}
+}
+```
+
+## Dataset
+
+This work uses the Temple University Hospital (TUH) EEG Corpus:
+
+```bibtex
+@article{obeid_temple_2016,
+  title={The Temple University Hospital EEG Data Corpus},
+  volume={10},
+  journal={Frontiers in Neuroscience},
+  author={Obeid, Iyad and Picone, Joseph},
+  year={2016},
+  pages={196}
+}
+```
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
