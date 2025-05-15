@@ -68,11 +68,14 @@ python scripts/classif/classification_zero_shot_tuh.py
 If you use EEGClip in your research, please cite our paper:
 
 ```bibtex
-@article{camaret2023eegclip,
-  title={EEG-CLIP: Learning EEG representations from natural language descriptions},
-  author={Camaret, Tidiane N'dir and Schirrmeister, Robin Tibor},
-  journal={arXiv preprint arXiv:2305.10304},
-  year={2023}
+@misc{ndir2025eegcliplearningeeg,
+      title={EEG-CLIP : Learning EEG representations from natural language descriptions}, 
+      author={Tidiane Camaret N'dir and Robin Tibor Schirrmeister},
+      year={2025},
+      eprint={2503.16531},
+      archivePrefix={arXiv},
+      primaryClass={cs.CL},
+      url={https://arxiv.org/abs/2503.16531}, 
 }
 ```
 
